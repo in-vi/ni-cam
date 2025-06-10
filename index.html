@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Baby Monitor</title>
+
+    <!-- PWA settings -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#1a1a1a">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="BabyMon">
+    
+    <link rel="stylesheet" href="style.css">
+    <link rel="apple-touch-icon" href="icons/icon-192x192.png">
+</head>
+<body>
+    <div class="container">
+        <h1>AI Baby Monitor</h1>
+        <p id="status">Connecting...</p>
+        
+        <div id="feed-container">
+            <img id="live-feed-img" src="https://via.placeholder.com/640x480.png?text=Waiting+for+feed..." alt="Live baby feed">
+        </div>
+
+        <h2>Recent Alerts</h2>
+        <ul id="notifications-list">
+            <!-- Notifications will be added here by JavaScript -->
+            <li>No alerts yet.</li>
+        </ul>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
