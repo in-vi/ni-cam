@@ -1,6 +1,6 @@
 // --- CONFIGURATION ---
-// IMPORTANT: Replace this with your own secret topic from ntfy.sh
-const NTFY_TOPIC = 'ni_alerts';
+const NTFY_TOPIC = 'ni_alerts'; // Make sure this is correct
+// -------------------
 
 const statusElement = document.getElementById('status');
 const liveFeedImg = document.getElementById('live-feed-img');
@@ -24,18 +24,27 @@ async function connectToNtfy() {
         while (true) {
             const { done, value } = await reader.read();
             if (done) {
+                console.log("Stream finished. Reconnecting...");
                 statusElement.textContent = 'Stream finished. Reconnecting...';
                 setTimeout(connectToNtfy, 5000);
                 break;
             }
 
-            const lines = decoder.decode(value, { stream: true }).split('\n');
+            const chunk = decoder.decode(value, { stream: true });
+            // --- DEBUG LINE 1 ---
+            console.log("Raw chunk received from server:", chunk);
+
+            const lines = chunk.split('\n');
             lines.forEach(line => {
                 if (line.trim()) {
                     try {
                         const event = JSON.parse(line);
+                        // --- DEBUG LINE 2 ---
+                        console.log("Successfully parsed JSON event:", event);
                         handleNtfyEvent(event);
-                    } catch (e) { /* Ignore incomplete JSON lines */ }
+                    } catch (e) {
+                        console.error("Failed to parse JSON line:", line, e);
+                    }
                 }
             });
         }
@@ -47,37 +56,36 @@ async function connectToNtfy() {
 }
 
 function handleNtfyEvent(event) {
-    if (event.event !== 'message') return;
-    console.log('Received event:', event);
+    // --- DEBUG LINE 3 ---
+    console.log("Processing event in handleNtfyEvent function:", event);
 
-    // --- THIS IS THE NEW LOGIC ---
-    // Check if this is a routine snapshot update
+    if (event.event !== 'message') {
+        console.log("Event ignored because it's not a 'message' event.");
+        return;
+    }
+
     if (event.tags && event.tags.includes('snapshot')) {
-        // If it's a snapshot, just update the image source.
+        console.log("This is a 'snapshot' event. Updating image.");
         if (event.attach) {
-            liveFeedImg.src = `${event.attach}?t=${new Date().getTime()}`;
+            liveFeedImg.src = event.attach; // No need for timestamp with data URIs or unique URLs
+        } else {
+            console.warn("Snapshot event received but it has no 'attach' field.");
         }
     } else {
-        // If it's anything else, treat it as a REAL alert and add it to the list!
+        console.log("This is a real alert. Adding to list.");
         if (notificationsList.querySelector('.no-alerts')) {
-            notificationsList.innerHTML = ''; // Clear the "No alerts yet" message
+            notificationsList.innerHTML = '';
         }
-
         const listItem = document.createElement('li');
         const timestamp = new Date(event.time * 1000).toLocaleTimeString();
         listItem.innerHTML = `<strong>${event.title || 'Alert'} at ${timestamp}:</strong><br>${event.message}`;
-        
-        // We can even style it based on priority later
-        if (event.priority >= 4) { // High or urgent priority
-            listItem.style.borderLeftColor = '#d9534f'; // Red for danger
+        if (event.priority >= 4) {
+            listItem.style.borderLeftColor = '#d9534f';
         }
-
         notificationsList.prepend(listItem);
     }
 }
 
-// Add a placeholder class to the initial li element in index.html
-// so we can easily remove it.
 document.addEventListener('DOMContentLoaded', () => {
     if (notificationsList.children.length === 1) {
         notificationsList.children[0].classList.add('no-alerts');
