@@ -24,55 +24,42 @@ async function connectToNtfy() {
         while (true) {
             const { done, value } = await reader.read();
             if (done) {
-                console.log("Stream finished. Reconnecting...");
-                statusElement.textContent = 'Stream finished. Reconnecting...';
                 setTimeout(connectToNtfy, 5000);
                 break;
             }
-
             const chunk = decoder.decode(value, { stream: true });
-            // --- DEBUG LINE 1 ---
-            console.log("Raw chunk received from server:", chunk);
-
             const lines = chunk.split('\n');
             lines.forEach(line => {
                 if (line.trim()) {
                     try {
                         const event = JSON.parse(line);
-                        // --- DEBUG LINE 2 ---
-                        console.log("Successfully parsed JSON event:", event);
                         handleNtfyEvent(event);
-                    } catch (e) {
-                        console.error("Failed to parse JSON line:", line, e);
-                    }
+                    } catch (e) { /* Ignore incomplete JSON */ }
                 }
             });
         }
     } catch (error) {
-        console.error('Connection failed:', error);
-        statusElement.textContent = 'Connection failed. Retrying...';
         setTimeout(connectToNtfy, 10000);
     }
 }
 
 function handleNtfyEvent(event) {
-    // --- DEBUG LINE 3 ---
-    console.log("Processing event in handleNtfyEvent function:", event);
-
     if (event.event !== 'message') {
-        console.log("Event ignored because it's not a 'message' event.");
-        return;
+        return; // Ignore 'open' and 'keepalive' events
     }
 
+    // Check if it's a routine snapshot update
     if (event.tags && event.tags.includes('snapshot')) {
-        console.log("This is a 'snapshot' event. Updating image.");
-        if (event.attach) {
-            liveFeedImg.src = event.attach; // No need for timestamp with data URIs or unique URLs
-        } else {
-            console.warn("Snapshot event received but it has no 'attach' field.");
+        
+        // --- THIS IS THE FIX ---
+        // We look for event.attachment, which is an object,
+        // and get the .url property from inside it.
+        if (event.attachment && event.attachment.url) {
+            liveFeedImg.src = event.attachment.url;
         }
+        
     } else {
-        console.log("This is a real alert. Adding to list.");
+        // Otherwise, it's a real alert for the list
         if (notificationsList.querySelector('.no-alerts')) {
             notificationsList.innerHTML = '';
         }
