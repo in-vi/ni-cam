@@ -1,6 +1,6 @@
 // --- CONFIGURATION ---
 // IMPORTANT: Replace this with your own secret topic from ntfy.sh
-const NTFY_TOPIC = 'YOUR_SECRET_TOPIC_NAME';
+const NTFY_TOPIC = 'ni_alerts';
 // -------------------
 
 const statusElement = document.getElementById('status');
