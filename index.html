@@ -48,8 +48,16 @@
             box-shadow: 0 0 15px rgba(99, 102, 241, 0.15); 
         }
 
+        .safe-top {
+            padding-top: max(1.5rem, env(safe-area-inset-top));
+        }
+        
+        .safe-main {
+            padding-top: calc(5.5rem + env(safe-area-inset-top));
+        }
+
         .bottom-nav {
-            padding-bottom: env(safe-area-inset-bottom);
+            padding-bottom: max(1.5rem, env(safe-area-inset-bottom)) !important;
         }
 
         .tab-active {
@@ -93,6 +101,34 @@
         .badge-online { background: #10b981; color: white; }
         .badge-offline { background: #ef4444; color: white; }
         .badge-syncing { background: #f59e0b; color: white; }
+
+        /* Swipe to Delete Styles */
+        .swipe-container {
+            position: relative;
+            overflow: hidden;
+            border-radius: 1.5rem;
+            background-color: #ef4444; /* rose-500 */
+        }
+        
+        .swipe-card {
+            position: relative;
+            z-index: 10;
+            background: white;
+            transition: transform 0.3s ease;
+            will-change: transform;
+            touch-action: pan-y; /* Allow vertical scrolling, capture horizontal */
+        }
+        
+        .swipe-action {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            padding-right: 1.5rem;
+            color: white;
+            cursor: pointer;
+        }
     </style>
 </head>
 <body class="pb-32">
@@ -148,7 +184,7 @@
     </div>
 
     <!-- Fixed Header Section -->
-    <div class="fixed top-0 left-0 right-0 z-50 px-6 pt-4 pb-3 bg-slate-50/80 backdrop-blur-lg flex justify-between items-center border-b border-slate-100">
+    <div class="fixed top-0 left-0 right-0 z-50 px-6 pb-3 bg-slate-50/80 backdrop-blur-lg flex justify-between items-center border-b border-slate-100 safe-top">
         <div class="fade-in">
             <h1 class="text-xl font-extrabold tracking-tight text-slate-900">Nivaan</h1>
             <p id="live-date" class="text-[10px] font-bold text-indigo-500 uppercase tracking-widest">Loading...</p>
@@ -162,7 +198,7 @@
     </div>
 
     <!-- Main Content -->
-    <main class="max-w-md mx-auto px-6 pt-24">
+    <main class="max-w-md mx-auto px-6 safe-main">
         
         <!-- Dashboard Hero (Live Task) -->
         <div id="focus-card" class="app-gradient rounded-[2.5rem] p-7 text-white shadow-2xl shadow-indigo-200 relative overflow-hidden mb-8 fade-in">
@@ -251,6 +287,7 @@
                         </button>
                     </div>
                 </div>
+                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-[-10px]">Today's Events <span class="font-normal normal-case ml-2">(Swipe left to delete)</span></p>
                 <div id="log-list" class="space-y-3"></div>
             </div>
 
@@ -289,7 +326,7 @@
     </main>
 
     <!-- Bottom Navigation Bar -->
-    <nav class="fixed bottom-0 left-0 right-0 z-50 glass border-t border-slate-100 px-8 pt-4 pb-6 bottom-nav rounded-t-[2.5rem] shadow-[0_-10px_40px_rgba(0,0,0,0.05)]">
+    <nav class="fixed bottom-0 left-0 right-0 z-50 glass border-t border-slate-100 px-8 pt-4 bottom-nav rounded-t-[2.5rem] shadow-[0_-10px_40px_rgba(0,0,0,0.05)]">
         <div class="max-w-md mx-auto flex justify-between items-center">
             <button onclick="switchTab('routine')" id="tab-routine" class="flex flex-col items-center gap-1.5 transition-all tab-active">
                 <i class="fas fa-house-chimney text-xl"></i>
@@ -314,7 +351,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot, addDoc, deleteDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         let app, auth, db;
         let activeDate = new Date().toISOString().split('T')[0];
@@ -417,6 +454,21 @@
             } catch (err) { console.error(err); }
         };
 
+        window.deleteLog = async (logId) => {
+            if (!auth?.currentUser) {
+                showToast('Cannot delete offline');
+                return;
+            }
+            try {
+                const logDoc = doc(db, 'routines', activeDate, 'logs', logId);
+                await deleteDoc(logDoc);
+                showToast('Event removed');
+            } catch (err) { 
+                console.error(err); 
+                showToast('Failed to remove event');
+            }
+        };
+
         window.confirmReset = async () => {
             if (!confirm("Reset all tasks for today?")) return;
             try {
@@ -425,6 +477,75 @@
                 showToast('Progress reset!');
             } catch (err) { console.error(err); }
         };
+
+        // --- Swipe to Delete Logic ---
+        let startX = 0;
+        let currentCard = null;
+
+        const handleTouchStart = (e) => {
+            const card = e.target.closest('.swipe-card');
+            
+            // If clicking elsewhere, close any open cards
+            if (!card) {
+                document.querySelectorAll('.swipe-card').forEach(c => {
+                    c.style.transform = 'translateX(0px)';
+                });
+                return;
+            }
+            
+            // If tapping an already open card, close it
+            if (card.style.transform === 'translateX(-80px)') {
+                 card.style.transform = 'translateX(0px)';
+                 return;
+            }
+
+            // Close other cards when starting to swipe a new one
+            document.querySelectorAll('.swipe-card').forEach(c => {
+                if (c !== card) c.style.transform = 'translateX(0px)';
+            });
+
+            startX = e.type.includes('mouse') ? e.pageX : e.touches[0].clientX;
+            currentCard = card;
+            card.style.transition = 'none';
+        };
+
+        const handleTouchMove = (e) => {
+            if (!currentCard) return;
+            const currentX = e.type.includes('mouse') ? e.pageX : e.touches[0].clientX;
+            const diff = currentX - startX;
+            
+            if (diff < 0) { // Only allow swipe left
+                const move = Math.max(diff, -80); // Cap max swipe at 80px (width of delete btn)
+                currentCard.style.transform = `translateX(${move}px)`;
+            }
+        };
+
+        const handleTouchEnd = (e) => {
+            if (!currentCard) return;
+            currentCard.style.transition = 'transform 0.3s ease';
+            const currentX = e.type.includes('mouse') ? e.pageX : e.changedTouches[0].clientX;
+            const diff = currentX - startX;
+
+            // If swiped more than half way, lock it open. Otherwise snap back.
+            if (diff < -40) {
+                currentCard.style.transform = 'translateX(-80px)';
+            } else {
+                currentCard.style.transform = 'translateX(0px)';
+            }
+            currentCard = null;
+        };
+
+        document.addEventListener('touchstart', handleTouchStart, {passive: true});
+        document.addEventListener('touchmove', handleTouchMove, {passive: true});
+        document.addEventListener('touchend', handleTouchEnd);
+        
+        // Add basic mouse support for testing on desktop
+        document.addEventListener('mousedown', handleTouchStart);
+        document.addEventListener('mousemove', (e) => {
+            if (currentCard && e.buttons === 1) handleTouchMove(e);
+        });
+        document.addEventListener('mouseup', handleTouchEnd);
+
 
         // --- Helper Functions ---
         window.switchTab = (tab) => {
@@ -441,6 +562,8 @@
                     view.classList.add('hidden');
                 }
             });
+            // Reset any open swipes when switching tabs
+            document.querySelectorAll('.swipe-card').forEach(c => c.style.transform = 'translateX(0px)');
         };
 
         window.saveSetup = async () => {
@@ -600,9 +723,17 @@
             }
             list.innerHTML = logs.map(log => {
                 const time = log.timestamp ? new Date(log.timestamp.seconds * 1000).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '...';
-                return `<div class="bg-white p-4 rounded-3xl border border-slate-100 card-shadow flex justify-between items-center fade-in">
-                    <p class="text-xs font-bold text-slate-700">${log.text}</p>
-                    <span class="text-[10px] font-mono text-slate-400 font-bold bg-slate-50 px-2 py-1 rounded-lg">${time}</span>
+                
+                // New Wrapper with Swipe-to-Delete functionality
+                return `
+                <div class="swipe-container fade-in card-shadow mb-3">
+                    <div class="swipe-action" onclick="deleteLog('${log.id}')">
+                        <i class="fas fa-trash-alt"></i>
+                    </div>
+                    <div class="swipe-card p-4 rounded-3xl border border-slate-100 flex justify-between items-center">
+                        <p class="text-xs font-bold text-slate-700">${log.text}</p>
+                        <span class="text-[10px] font-mono text-slate-400 font-bold bg-slate-50 px-2 py-1 rounded-lg">${time}</span>
+                    </div>
                 </div>`;
             }).join('');
         }
