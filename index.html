@@ -232,7 +232,8 @@
         import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot, query, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // --- Config & Routine Data ---
-        const firebaseConfig = JSON.parse(__firebase_config);
+        // Safeguard global variables provided by the environment
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : { apiKey: "", projectId: "" };
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
@@ -255,24 +256,36 @@
 
         // --- Auth & Realtime Sync ---
         const initAuth = async () => {
-            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                await signInWithCustomToken(auth, __initial_auth_token);
-            } else {
-                await signInAnonymously(auth);
+            try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+            } catch (error) {
+                console.error("Auth failed:", error);
+                showToast("Connection failed. Please refresh.");
             }
         };
 
         onAuthStateChanged(auth, (user) => {
             if (user) {
-                document.getElementById('loader').classList.add('hidden');
-                document.getElementById('device-id').innerText = user.uid.substring(0, 12) + "...";
+                const loader = document.getElementById('loader');
+                if (loader) loader.classList.add('hidden');
+                
+                const deviceIdEl = document.getElementById('device-id');
+                if (deviceIdEl) deviceIdEl.innerText = user.uid.substring(0, 12) + "...";
+                
                 updateStatusBadge(true);
                 setupRealtimeSync();
             }
         });
 
         function setupRealtimeSync() {
-            const statusDoc = doc(db, 'artifacts', appId, 'public', 'data', 'dailyRoutine_' + activeDate);
+            if (!auth.currentUser) return;
+            
+            // CORRECTED: Fixed document segments (6 segments is even)
+            const statusDoc = doc(db, 'artifacts', appId, 'public', 'data', 'dailyRoutines', activeDate);
             onSnapshot(statusDoc, (snapshot) => {
                 currentChecks = snapshot.data()?.checks || {};
                 updateUI();
@@ -290,7 +303,8 @@
         window.toggleTask = async (id) => {
             if (!auth.currentUser) return;
             updateStatusBadge(true, 'syncing');
-            const statusDoc = doc(db, 'artifacts', appId, 'public', 'data', 'dailyRoutine_' + activeDate);
+            // CORRECTED: Fixed document segments
+            const statusDoc = doc(db, 'artifacts', appId, 'public', 'data', 'dailyRoutines', activeDate);
             const newChecks = { ...currentChecks };
             newChecks[id] = !newChecks[id];
             await setDoc(statusDoc, { checks: newChecks }, { merge: true });
@@ -306,7 +320,8 @@
 
         window.confirmReset = async () => {
             if (!confirm("Wipe all progress for today?")) return;
-            const statusDoc = doc(db, 'artifacts', appId, 'public', 'data', 'dailyRoutine_' + activeDate);
+            // CORRECTED: Fixed document segments
+            const statusDoc = doc(db, 'artifacts', appId, 'public', 'data', 'dailyRoutines', activeDate);
             await setDoc(statusDoc, { checks: {} });
             showToast("Progress reset");
         };
@@ -353,6 +368,8 @@
 
         function renderRoutineList(checks, focusIndex) {
             const list = document.getElementById('routine-list');
+            if (!list) return;
+            
             list.innerHTML = routineData.map((item, idx) => {
                 const isChecked = !!checks[item.id];
                 const isCurrent = idx === focusIndex;
@@ -365,7 +382,6 @@
                 else if (isChecked) iconWrapperClass += " bg-emerald-100 text-emerald-600";
                 else iconWrapperClass += " bg-white text-slate-300";
 
-                // Visual Checkbox UI - High visibility
                 const checkboxHtml = isChecked 
                     ? `<div class="w-6 h-6 rounded-full bg-emerald-500 flex items-center justify-center text-white text-[10px] shadow-sm"><i class="fa-solid fa-check"></i></div>` 
                     : `<div class="w-6 h-6 rounded-full border-2 border-slate-300 bg-slate-50"></div>`;
@@ -393,6 +409,8 @@
 
         function renderLogs(logs) {
             const list = document.getElementById('log-list');
+            if (!list) return;
+            
             if (!logs.length) {
                 list.innerHTML = '<p class="text-center py-12 text-slate-300 text-xs font-bold uppercase tracking-widest">No Events Yet</p>';
                 return;
@@ -409,8 +427,11 @@
         function updateProgress(checks) {
             const completed = Object.values(checks).filter(v => v).length;
             const percent = Math.round((completed / routineData.length) * 100);
-            document.getElementById('progress-bar').style.width = percent + '%';
-            document.getElementById('progress-text').innerText = percent + '%';
+            const progressBar = document.getElementById('progress-bar');
+            const progressText = document.getElementById('progress-text');
+            
+            if (progressBar) progressBar.style.width = percent + '%';
+            if (progressText) progressText.innerText = percent + '%';
         }
 
         // --- View Transitions ---
@@ -420,13 +441,13 @@
                 const btn = document.getElementById(`nav-${t}`);
                 const view = document.getElementById(`view-${t}`);
                 if (t === tab) {
-                    btn.classList.add('tab-active');
-                    btn.classList.remove('text-slate-400');
-                    view.classList.remove('hidden');
+                    if (btn) btn.classList.add('tab-active');
+                    if (btn) btn.classList.remove('text-slate-400');
+                    if (view) view.classList.remove('hidden');
                 } else {
-                    btn.classList.remove('tab-active');
-                    btn.classList.add('text-slate-400');
-                    view.classList.add('hidden');
+                    if (btn) btn.classList.remove('tab-active');
+                    if (btn) btn.classList.add('text-slate-400');
+                    if (view) view.classList.add('hidden');
                 }
             });
         };
@@ -434,6 +455,8 @@
         function updateStatusBadge(connected, type = 'ready') {
             const badge = document.getElementById('firebase-status');
             const text = document.getElementById('fb-status-text');
+            if (!badge || !text) return;
+            
             if (type === 'syncing') {
                 badge.className = 'w-2 h-2 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.5)] animate-pulse';
                 text.innerText = 'Syncing...';
@@ -448,6 +471,7 @@
 
         function showToast(msg) {
             const t = document.getElementById('toast');
+            if (!t) return;
             t.innerText = msg;
             t.classList.remove('opacity-0', 'pointer-events-none');
             t.classList.add('opacity-100', 'translate-y-[-10px]');
@@ -459,8 +483,11 @@
 
         function updateClock() {
             const now = new Date();
-            document.getElementById('live-clock').innerText = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
-            document.getElementById('live-date').innerText = now.toLocaleDateString(undefined, { month: 'short', day: 'numeric', weekday: 'short' });
+            const clockEl = document.getElementById('live-clock');
+            const dateEl = document.getElementById('live-date');
+            
+            if (clockEl) clockEl.innerText = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+            if (dateEl) dateEl.innerText = now.toLocaleDateString(undefined, { month: 'short', day: 'numeric', weekday: 'short' });
             
             const currentStr = now.toISOString().split('T')[0];
             if (activeDate !== currentStr) {
