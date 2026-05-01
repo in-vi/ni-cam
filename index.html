@@ -2,543 +2,323 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Nivaan's Daily Routine Tracker</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Nivaan's Toddler Tracker</title>
+    
+    <!-- PWA Meta Tags -->
+    <meta name="description" content="Track Nivaan's daily routine with real-time sync and family sharing">
+    <meta name="theme-color" content="#6366f1">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Nivaan">
+    
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Geist:wght@400;600;700&display=swap');
-        * { -webkit-tap-highlight-color: transparent; }
-        body { font-family: 'Geist', sans-serif; }
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
         
-        .active-slot { 
-            border-color: #6366f1; 
-            border-width: 2px; 
-            box-shadow: 0 0 15px rgba(99, 102, 241, 0.2); 
+        * { -webkit-tap-highlight-color: transparent; outline: none; }
+        
+        body { 
+            font-family: 'Plus Jakarta Sans', sans-serif; 
+            background-color: #f8fafc;
+            color: #0f172a;
         }
         
-        .upcoming-pulse { 
-            animation: pulse 2s infinite; 
-        }
-        
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.6; }
+        .app-gradient {
+            background: radial-gradient(circle at top right, #818cf8, #6366f1);
         }
 
-        .fade-in {
-            animation: fadeIn 0.4s ease-in;
+        .glass-card {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.07);
         }
 
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
+        .active-ring {
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+        }
+
+        .timeline-line::before {
+            content: '';
+            position: absolute;
+            left: 28px;
+            top: 40px;
+            bottom: 0;
+            width: 2px;
+            background: #e2e8f0;
+            z-index: 0;
+        }
+
+        .bottom-nav {
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+
+        .tab-active {
+            color: #6366f1;
+            transform: translateY(-4px);
+        }
+
+        .fade-up {
+            animation: fadeUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(20px); }
             to { opacity: 1; transform: translateY(0); }
         }
 
-        .slide-up {
-            animation: slideUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        .pulse-soft {
+            animation: pulseSoft 2s infinite;
         }
 
-        @keyframes slideUp {
-            from { transform: translateY(100px); opacity: 0; }
-            to { transform: translateY(0); opacity: 1; }
+        @keyframes pulseSoft {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.8; transform: scale(0.98); }
         }
 
-        .glass {
-            background: rgba(255, 255, 255, 0.7);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-        }
-
-        .shimmer {
-            background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.2) 50%, rgba(255,255,255,0) 100%);
-            background-size: 200% 100%;
-            animation: shimmer 2s infinite;
-        }
-
-        @keyframes shimmer {
-            0% { background-position: 200% 0; }
-            100% { background-position: -200% 0; }
-        }
-
-        .badge-status {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.25rem;
-            padding: 0.25rem 0.75rem;
-            border-radius: 999px;
-            font-size: 0.7rem;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-        }
-
-        .badge-online {
-            background: #10b981;
-            color: white;
-        }
-
-        .badge-offline {
-            background: #ef4444;
-            color: white;
-        }
-
-        .badge-syncing {
-            background: #f59e0b;
-            color: white;
-        }
+        /* Hide scrollbar */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
 </head>
-<body class="bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100 text-slate-900 pb-24">
+<body class="pb-32">
 
-    <!-- Setup Modal (shown on first visit) -->
-    <div id="setup-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
-        <div class="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6 slide-up">
-            <div class="flex items-center justify-center w-12 h-12 rounded-full bg-indigo-100 mx-auto mb-4">
-                <i class="fas fa-rocket text-indigo-600 text-xl"></i>
-            </div>
-            <h2 class="text-2xl font-bold text-center mb-2">Welcome to Nivaan's Tracker</h2>
-            <p class="text-slate-600 text-center text-sm mb-6">Let's set up cloud sync so you can access this from anywhere</p>
-            
-            <div class="space-y-4 mb-6">
-                <div>
-                    <label class="block text-xs font-bold text-slate-700 mb-2 uppercase tracking-wide">Firebase Project ID</label>
-                    <input type="text" id="setup-project-id" placeholder="my-project-id" class="w-full px-4 py-2 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm">
-                    <p class="text-[10px] text-slate-500 mt-1">Find in Firebase Console → Project Settings</p>
-                </div>
-                <div>
-                    <label class="block text-xs font-bold text-slate-700 mb-2 uppercase tracking-wide">API Key</label>
-                    <input type="text" id="setup-api-key" placeholder="AIza..." class="w-full px-4 py-2 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm">
-                    <p class="text-[10px] text-slate-500 mt-1">Find in Firebase Console → Project Settings → Web API Key</p>
-                </div>
-            </div>
-
-            <button onclick="saveSetup()" class="w-full bg-indigo-600 text-white font-bold py-3 rounded-xl hover:bg-indigo-700 transition-colors mb-2">
-                <i class="fas fa-check-circle mr-2"></i> Save & Continue
-            </button>
-            
-            <button onclick="skipSetup()" class="w-full text-slate-600 font-bold py-3 rounded-xl hover:bg-slate-100 transition-colors">
-                <i class="fas fa-forward mr-2"></i> Use Offline (Skip)
-            </button>
-
-            <p class="text-[10px] text-slate-500 text-center mt-4">
-                <a href="#" onclick="showSetupGuide(); return false;" class="text-indigo-600 hover:underline">How to set up Firebase?</a>
-            </p>
+    <!-- Top Status Bar -->
+    <div class="fixed top-0 left-0 right-0 z-50 px-6 pt-4 pb-2 bg-slate-50/80 backdrop-blur-md flex justify-between items-center">
+        <div class="flex items-center gap-2">
+            <div class="w-8 h-8 rounded-full app-gradient flex items-center justify-center text-white text-[10px] font-bold shadow-lg shadow-indigo-200">N</div>
+            <span id="live-date" class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Loading...</span>
+        </div>
+        <div class="flex items-center gap-3">
+            <span id="live-clock" class="text-sm font-extrabold tracking-tighter text-slate-800">00:00</span>
+            <div id="firebase-status" class="w-2 h-2 rounded-full bg-rose-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]"></div>
         </div>
     </div>
 
-    <!-- Setup Guide Modal -->
-    <div id="setup-guide-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden overflow-y-auto">
-        <div class="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6 my-8 slide-up">
-            <div class="flex justify-between items-start mb-4">
-                <h2 class="text-xl font-bold">Firebase Setup Guide</h2>
-                <button onclick="hideSetupGuide()" class="text-slate-400 hover:text-slate-600">
-                    <i class="fas fa-times text-xl"></i>
-                </button>
-            </div>
+    <!-- Main Container -->
+    <main class="max-w-md mx-auto px-6 pt-20">
+        
+        <!-- Hero Tracking Card -->
+        <div id="focus-card" class="app-gradient rounded-[2.5rem] p-7 text-white shadow-2xl shadow-indigo-200 relative overflow-hidden fade-up">
+            <div class="absolute -top-10 -right-10 w-40 h-40 bg-white/10 rounded-full blur-3xl"></div>
             
-            <div class="space-y-4 text-sm">
-                <div>
-                    <h3 class="font-bold text-indigo-600 mb-2">1️⃣ Create Firebase Project</h3>
-                    <p class="text-slate-600">Go to <a href="https://console.firebase.google.com" target="_blank" class="text-indigo-600 hover:underline">Firebase Console</a>, click "Add Project", enter name, click Create</p>
-                </div>
-                <div>
-                    <h3 class="font-bold text-indigo-600 mb-2">2️⃣ Create Web App</h3>
-                    <p class="text-slate-600">In Firebase project, click "Add App" → Web. Copy your config, especially Project ID and API Key</p>
-                </div>
-                <div>
-                    <h3 class="font-bold text-indigo-600 mb-2">3️⃣ Enable Firestore Database</h3>
-                    <p class="text-slate-600">Go to Build → Firestore Database → Create Database → Select location → Start in Test Mode</p>
-                </div>
-                <div>
-                    <h3 class="font-bold text-indigo-600 mb-2">4️⃣ Enable Anonymous Auth</h3>
-                    <p class="text-slate-600">Go to Build → Authentication → Get Started → Enable Anonymous</p>
-                </div>
-                <div>
-                    <h3 class="font-bold text-indigo-600 mb-2">5️⃣ Paste Credentials</h3>
-                    <p class="text-slate-600">Come back here and paste your Project ID and API Key above</p>
-                </div>
-            </div>
-
-            <button onclick="hideSetupGuide()" class="w-full mt-6 bg-indigo-600 text-white font-bold py-3 rounded-xl hover:bg-indigo-700 transition-colors">
-                <i class="fas fa-check mr-2"></i> Got It!
-            </button>
-        </div>
-    </div>
-
-    <!-- Header & Dynamic Progress Section -->
-    <div class="bg-gradient-to-br from-indigo-600 via-indigo-500 to-blue-600 text-white pt-8 pb-14 px-6 rounded-b-[2.5rem] shadow-xl sticky top-0 z-20">
-        <div class="max-w-md mx-auto">
-            <div class="flex justify-between items-start mb-6">
-                <div class="fade-in">
-                    <h1 class="text-4xl font-bold tracking-tight">Nivaan</h1>
-                    <p id="live-date" class="text-indigo-200 text-sm font-medium mt-1">Loading date...</p>
-                </div>
-                <div class="text-right fade-in" style="animation-delay: 0.1s">
-                    <p id="live-clock" class="text-3xl font-bold font-mono tracking-tighter">00:00</p>
-                    <div class="mt-2 flex justify-end gap-2">
-                        <span id="firebase-status" class="badge-status badge-offline">
-                            <i class="fas fa-circle w-1.5 h-1.5"></i> Offline
-                        </span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Focus Mode: Current/Next Task -->
-            <div id="focus-card" class="bg-white/15 backdrop-blur-md rounded-2xl p-4 border border-white/30 mb-4 transition-all duration-500 fade-in" style="animation-delay: 0.2s">
-                <p class="text-[10px] font-bold uppercase tracking-wider text-indigo-100 mb-1" id="focus-label">Now Tracking</p>
-                <div class="flex items-center justify-between">
+            <div class="relative z-10">
+                <div class="flex justify-between items-start mb-6">
                     <div>
-                        <h2 id="focus-task" class="text-xl font-bold">Initializing...</h2>
-                        <p id="focus-detail" class="text-sm text-indigo-100 opacity-80 italic">Stand by</p>
+                        <p id="focus-label" class="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-100 mb-1">Live Tracking</p>
+                        <h2 id="focus-task" class="text-2xl font-extrabold tracking-tight">Syncing...</h2>
                     </div>
-                    <div id="focus-icon-container" class="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center flex-shrink-0 ml-4">
-                        <i id="focus-icon" class="fas fa-clock"></i>
+                    <div id="focus-icon-container" class="w-12 h-12 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center text-xl">
+                        <i id="focus-icon" class="fa-solid fa-clock"></i>
                     </div>
                 </div>
-            </div>
-
-            <!-- Goal Progress Bar -->
-            <div class="bg-indigo-900/30 rounded-2xl p-3 border border-indigo-400/20 fade-in" style="animation-delay: 0.3s">
-                <div class="flex justify-between items-end mb-1.5">
-                    <span class="text-[10px] font-bold uppercase text-indigo-100">Daily Goal Progress</span>
-                    <span id="progress-text" class="text-sm font-bold text-emerald-300">0%</span>
-                </div>
-                <div class="w-full bg-indigo-950/50 rounded-full h-2.5 overflow-hidden">
-                    <div id="progress-bar" class="bg-gradient-to-r from-emerald-400 to-cyan-400 h-full transition-all duration-700 ease-out rounded-full shadow-lg" style="width: 0%; box-shadow: 0 0 20px rgba(16, 185, 129, 0.5)"></div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Quick Info Cards -->
-    <div class="max-w-md mx-auto -mt-6 px-4 grid grid-cols-2 gap-3 relative z-30 fade-in">
-        <div class="glass rounded-2xl shadow-lg p-4 border-b-4 border-blue-500">
-            <p class="text-slate-500 text-[10px] uppercase font-bold mb-2">Total Milk Daily</p>
-            <p class="text-2xl font-bold text-slate-800">~500ml</p>
-            <p class="text-xs text-slate-500 mt-1">In 3 feeds</p>
-        </div>
-        <div class="glass rounded-2xl shadow-lg p-4 border-b-4 border-amber-500">
-            <p class="text-slate-500 text-[10px] uppercase font-bold mb-2">Mix Ratio</p>
-            <p class="text-sm font-bold text-slate-800">100ml <span class="text-blue-500 mx-1">/</span> 60ml</p>
-            <p class="text-xs text-slate-500 mt-1">Formula / Breast</p>
-        </div>
-    </div>
-
-    <!-- Main Content -->
-    <div class="max-w-md mx-auto mt-6 px-4 relative z-30">
-        <!-- Tabs -->
-        <div class="flex space-x-1 bg-white/60 glass p-1 rounded-xl mb-6 shadow-md fade-in" style="animation-delay: 0.1s">
-            <button onclick="switchTab('routine')" id="tab-routine" class="flex-1 py-2.5 text-xs font-bold rounded-lg transition-all bg-white shadow-sm text-indigo-600">
-                <i class="fas fa-list mr-1"></i> Timeline
-            </button>
-            <button onclick="switchTab('logs')" id="tab-logs" class="flex-1 py-2.5 text-xs font-bold rounded-lg transition-all text-slate-600">
-                <i class="fas fa-calendar-check mr-1"></i> Events
-            </button>
-            <button onclick="switchTab('settings')" id="tab-settings" class="flex-1 py-2.5 text-xs font-bold rounded-lg transition-all text-slate-600">
-                <i class="fas fa-cog mr-1"></i> Settings
-            </button>
-        </div>
-
-        <!-- Routine List View -->
-        <div id="view-routine" class="space-y-3 fade-in">
-            <div id="loader" class="text-center py-10">
-                <i class="fas fa-circle-notch fa-spin text-indigo-500 text-3xl"></i>
-                <p class="text-slate-400 mt-3 text-sm font-medium">Loading routine...</p>
-            </div>
-            <div id="routine-list" class="space-y-3"></div>
-        </div>
-
-        <!-- Logs View -->
-        <div id="view-logs" class="hidden fade-in">
-            <div class="glass rounded-2xl p-4 shadow-md border border-slate-200 mb-4">
-                <h3 class="text-xs font-bold mb-3 text-slate-700 uppercase tracking-wide">Quick Event Log</h3>
-                <div class="grid grid-cols-2 gap-2">
-                    <button onclick="addLog('💩 Diaper Change')" class="p-3 bg-amber-50 text-amber-700 rounded-xl text-xs font-bold border border-amber-200 hover:bg-amber-100 transition-colors">💩 Diaper</button>
-                    <button onclick="addLog('💊 Medication')" class="p-3 bg-rose-50 text-rose-700 rounded-xl text-xs font-bold border border-rose-200 hover:bg-rose-100 transition-colors">💊 Meds</button>
-                    <button onclick="addLog('🍎 Extra Snack')" class="p-3 bg-emerald-50 text-emerald-700 rounded-xl text-xs font-bold border border-emerald-200 hover:bg-emerald-100 transition-colors">🍎 Snack</button>
-                    <button onclick="addLog('🏥 Doctor Visit')" class="p-3 bg-blue-50 text-blue-700 rounded-xl text-xs font-bold border border-blue-200 hover:bg-blue-100 transition-colors">🏥 Doctor</button>
-                </div>
-            </div>
-            <div id="log-list" class="space-y-2"></div>
-        </div>
-
-        <!-- Settings View -->
-        <div id="view-settings" class="hidden fade-in space-y-4">
-            <div class="glass rounded-2xl p-4 shadow-md border border-slate-200">
-                <h3 class="text-xs font-bold mb-4 text-slate-700 uppercase tracking-wide">Firebase Configuration</h3>
                 
-                <div class="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                    <p class="text-xs text-blue-700 font-medium">
-                        <i class="fas fa-info-circle mr-2"></i>
-                        Firebase Status: <span id="fb-status-text" class="font-bold">Checking...</span>
-                    </p>
-                </div>
-
-                <div class="space-y-3">
-                    <div>
-                        <label class="block text-xs font-bold text-slate-700 mb-1 uppercase">Project ID</label>
-                        <input type="text" id="settings-project-id" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm">
+                <p id="focus-detail" class="text-sm text-indigo-50 font-medium opacity-90 mb-6 line-clamp-1">Preparing Nivaan's schedule...</p>
+                
+                <div class="space-y-2">
+                    <div class="flex justify-between items-end">
+                        <span class="text-[10px] font-bold uppercase text-indigo-100">Daily Completion</span>
+                        <span id="progress-text" class="text-lg font-black tracking-tighter">0%</span>
                     </div>
-                    <div>
-                        <label class="block text-xs font-bold text-slate-700 mb-1 uppercase">API Key</label>
-                        <input type="text" id="settings-api-key" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm">
+                    <div class="w-full bg-black/10 rounded-full h-3 p-1 overflow-hidden">
+                        <div id="progress-bar" class="bg-white h-full rounded-full transition-all duration-1000 ease-out" style="width: 0%"></div>
                     </div>
-                </div>
-
-                <div class="flex gap-2 mt-4">
-                    <button onclick="updateFirebaseConfig()" class="flex-1 bg-indigo-600 text-white font-bold py-2 rounded-lg hover:bg-indigo-700 transition-colors text-sm">
-                        <i class="fas fa-save mr-1"></i> Save Config
-                    </button>
-                    <button onclick="testFirebaseConnection()" class="flex-1 bg-blue-600 text-white font-bold py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm">
-                        <i class="fas fa-plug mr-1"></i> Test
-                    </button>
                 </div>
             </div>
+        </div>
 
-            <div class="glass rounded-2xl p-4 shadow-md border border-slate-200">
-                <h3 class="text-xs font-bold mb-4 text-slate-700 uppercase tracking-wide">Actions</h3>
-                <button onclick="confirmReset()" class="w-full text-rose-600 font-bold py-2 rounded-lg hover:bg-rose-50 transition-colors text-sm">
-                    <i class="fas fa-redo-alt mr-2"></i> Reset Today's Progress
+        <!-- Quick Glance Grid -->
+        <div class="grid grid-cols-2 gap-4 mt-6 fade-up" style="animation-delay: 0.1s">
+            <div class="glass-card rounded-[2rem] p-5">
+                <div class="w-8 h-8 rounded-xl bg-blue-50 text-blue-500 flex items-center justify-center mb-3">
+                    <i class="fa-solid fa-bottle-water text-xs"></i>
+                </div>
+                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Total Milk</p>
+                <p class="text-lg font-extrabold text-slate-800">~500ml</p>
+            </div>
+            <div class="glass-card rounded-[2rem] p-5">
+                <div class="w-8 h-8 rounded-xl bg-amber-50 text-amber-500 flex items-center justify-center mb-3">
+                    <i class="fa-solid fa-flask text-xs"></i>
+                </div>
+                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Ratio (F/B)</p>
+                <p class="text-lg font-extrabold text-slate-800">100/60</p>
+            </div>
+        </div>
+
+        <!-- Views Container -->
+        <div id="view-container" class="mt-8 mb-20 fade-up" style="animation-delay: 0.2s">
+            
+            <!-- Timeline View -->
+            <div id="view-routine" class="relative timeline-line space-y-6">
+                <div id="loader" class="text-center py-10 opacity-50">
+                    <i class="fa-solid fa-spinner fa-spin"></i>
+                </div>
+                <div id="routine-list" class="space-y-8"></div>
+            </div>
+
+            <!-- Events View -->
+            <div id="view-logs" class="hidden space-y-6">
+                <div class="grid grid-cols-2 gap-3">
+                    <button onclick="addLog('💩 Diaper')" class="p-4 bg-white rounded-3xl border border-slate-100 shadow-sm flex flex-col items-center gap-2 transition-active active:scale-95">
+                        <i class="fa-solid fa-poop text-amber-600 text-lg"></i>
+                        <span class="text-[10px] font-bold uppercase">Diaper</span>
+                    </button>
+                    <button onclick="addLog('💊 Meds')" class="p-4 bg-white rounded-3xl border border-slate-100 shadow-sm flex flex-col items-center gap-2 transition-active active:scale-95">
+                        <i class="fa-solid fa-pills text-rose-500 text-lg"></i>
+                        <span class="text-[10px] font-bold uppercase">Meds</span>
+                    </button>
+                    <button onclick="addLog('🍎 Snack')" class="p-4 bg-white rounded-3xl border border-slate-100 shadow-sm flex flex-col items-center gap-2 transition-active active:scale-95">
+                        <i class="fa-solid fa-apple-whole text-emerald-500 text-lg"></i>
+                        <span class="text-[10px] font-bold uppercase">Snack</span>
+                    </button>
+                    <button onclick="addLog('🏥 Health')" class="p-4 bg-white rounded-3xl border border-slate-100 shadow-sm flex flex-col items-center gap-2 transition-active active:scale-95">
+                        <i class="fa-solid fa-heart-pulse text-indigo-500 text-lg"></i>
+                        <span class="text-[10px] font-bold uppercase">Health</span>
+                    </button>
+                </div>
+                <div id="log-list" class="space-y-3"></div>
+            </div>
+
+            <!-- Settings View -->
+            <div id="view-settings" class="hidden space-y-4">
+                <div class="glass-card rounded-[2rem] p-6">
+                    <h3 class="text-xs font-black uppercase tracking-widest text-slate-400 mb-4">Cloud Status</h3>
+                    <div class="flex items-center justify-between py-3 border-b border-slate-100">
+                        <span class="text-sm font-bold text-slate-700">Syncing</span>
+                        <span id="fb-status-text" class="text-xs font-black text-indigo-600">Active</span>
+                    </div>
+                    <div class="flex items-center justify-between py-3">
+                        <span class="text-sm font-bold text-slate-700">Device ID</span>
+                        <span id="device-id" class="text-[10px] font-mono text-slate-400">Loading...</span>
+                    </div>
+                </div>
+                <button onclick="confirmReset()" class="w-full py-5 rounded-[2rem] bg-rose-50 text-rose-600 font-bold text-sm border border-rose-100 transition-active active:scale-95">
+                    <i class="fa-solid fa-trash-can mr-2"></i> Reset Today's Progress
                 </button>
             </div>
         </div>
-    </div>
+    </main>
 
-    <!-- Toast UI -->
-    <div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-6 py-3 rounded-full text-xs font-bold shadow-2xl opacity-0 pointer-events-none transition-all z-50">
+    <!-- Bottom Navigation Bar -->
+    <nav class="fixed bottom-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-2xl border-t border-slate-100 px-8 pt-4 bottom-nav shadow-[0_-10px_40px_rgba(0,0,0,0.05)]">
+        <div class="max-w-md mx-auto flex justify-between items-center">
+            <button onclick="switchTab('routine')" id="nav-routine" class="flex flex-col items-center gap-1 transition-all tab-active">
+                <i class="fa-solid fa-house-user text-xl"></i>
+                <span class="text-[10px] font-bold">Home</span>
+            </button>
+            <button onclick="switchTab('logs')" id="nav-logs" class="flex flex-col items-center gap-1 transition-all text-slate-400">
+                <i class="fa-solid fa-notes-medical text-xl"></i>
+                <span class="text-[10px] font-bold">Events</span>
+            </button>
+            <button onclick="switchTab('settings')" id="nav-settings" class="flex flex-col items-center gap-1 transition-all text-slate-400">
+                <i class="fa-solid fa-gear text-xl"></i>
+                <span class="text-[10px] font-bold">Settings</span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed bottom-24 left-6 right-6 z-[60] glass-card rounded-2xl p-4 flex items-center justify-center text-xs font-bold text-indigo-600 border-indigo-100 opacity-0 pointer-events-none transition-all duration-300">
         Syncing...
     </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot, query, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        let app, auth, db, currentUser;
-        let activeDate = new Date().toISOString().split('T')[0];
-        let currentChecks = {};
-        let isOnline = false;
-        let isSyncing = false;
+        // --- Config & Routine Data ---
+        const firebaseConfig = JSON.parse(__firebase_config);
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'nivaan-toddler-tracker';
 
         const routineData = [
-            { id: 0, time: "06:00", label: "06:00 AM", task: "Wake Up", detail: "Activity: Morning Play", icon: "fa-sun", color: "yellow" },
-            { id: 1, time: "07:30", label: "07:30 AM", task: "Breakfast + Milk 1", detail: "Cereal + Banana | 160-180ml Milk", icon: "fa-utensils", color: "orange" },
-            { id: 2, time: "09:30", label: "09:30 AM", task: "Nap 1", detail: "Sleep (~1.5 Hours)", icon: "fa-moon", color: "purple" },
-            { id: 3, time: "12:00", label: "12:00 PM", task: "Lunch", detail: "Chicken + Broccoli + Rice (1/2 Cup)", icon: "fa-bowl-food", color: "green" },
-            { id: 4, time: "14:30", label: "02:30 PM", task: "Nap 2", detail: "Sleep (Wake by 4:00 PM)", icon: "fa-bed", color: "blue" },
-            { id: 5, time: "16:30", label: "04:30 PM", task: "Milk Feed 2", detail: "Milk (160ml)", icon: "fa-bottle-water", color: "cyan" },
-            { id: 6, time: "19:00", label: "07:00 PM", task: "Dinner", detail: "Soft Family Food (1/2 Cup)", icon: "fa-plate-wheat", color: "red" },
-            { id: 7, time: "20:30", label: "08:30 PM", task: "Bedtime Prep + Milk 3", detail: "Milk (160ml)", icon: "fa-bottle-water", color: "indigo" },
-            { id: 8, time: "21:00", label: "09:00 PM", task: "Night Sleep", detail: "Goal: Straight through (9hrs)", icon: "fa-star", color: "slate" }
+            { id: 0, time: "06:00", label: "06:00 AM", task: "Wake Up", detail: "Morning Activity & Play", icon: "fa-sun" },
+            { id: 1, time: "07:30", label: "07:30 AM", task: "Breakfast + Milk 1", detail: "Cereal + Banana | 160-180ml", icon: "fa-utensils" },
+            { id: 2, time: "09:30", label: "09:30 AM", task: "Nap 1", detail: "Sleep (~1.5 Hours)", icon: "fa-moon" },
+            { id: 3, time: "12:00", label: "12:00 PM", task: "Lunch", detail: "Chicken + Broccoli + Rice", icon: "fa-bowl-food" },
+            { id: 4, time: "14:30", label: "02:30 PM", task: "Nap 2", detail: "End by 4:00 PM", icon: "fa-bed" },
+            { id: 5, time: "16:30", label: "04:30 PM", task: "Milk Feed 2", detail: "Milk (160ml)", icon: "fa-bottle-water" },
+            { id: 6, time: "19:00", label: "07:00 PM", task: "Dinner", detail: "Soft Family Food (1/2 Cup)", icon: "fa-plate-wheat" },
+            { id: 7, time: "20:30", label: "08:30 PM", task: "Bed Prep + Milk 3", detail: "Milk (160ml)", icon: "fa-bottle-water" },
+            { id: 8, time: "21:00", label: "09:00 PM", task: "Night Sleep", detail: "Goal: 9 Hours Straight", icon: "fa-star" }
         ];
 
-        // --- Initialization ---
-        window.initApp = async (projectId, apiKey) => {
-            try {
-                const firebaseConfig = {
-                    apiKey: apiKey,
-                    projectId: projectId,
-                    authDomain: `${projectId}.firebaseapp.com`,
-                    databaseURL: `https://${projectId}.firebaseio.com`,
-                    storageBucket: `${projectId}.appspot.com`,
-                    messagingSenderId: "1",
-                    appId: "1"
-                };
+        let activeDate = new Date().toISOString().split('T')[0];
+        let currentChecks = {};
 
-                app = initializeApp(firebaseConfig, 'nivaan-tracker');
-                auth = getAuth(app);
-                db = getFirestore(app);
-
-                // Check if config is valid
-                localStorage.setItem('firebase-project-id', projectId);
-                localStorage.setItem('firebase-api-key', apiKey);
-
+        // --- Auth & Realtime Sync ---
+        const initAuth = async () => {
+            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                await signInWithCustomToken(auth, __initial_auth_token);
+            } else {
                 await signInAnonymously(auth);
-                isOnline = true;
-                updateFirebaseStatus(true);
-                setupRealtimeSync();
-
-                return true;
-            } catch (err) {
-                console.error('Firebase init error:', err);
-                isOnline = false;
-                updateFirebaseStatus(false, err.message);
-                return false;
             }
         };
 
-        window.setupRealtimeSync = () => {
-            if (!auth.currentUser) return;
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                document.getElementById('loader').classList.add('hidden');
+                document.getElementById('device-id').innerText = user.uid.substring(0, 12) + "...";
+                updateStatusBadge(true);
+                setupRealtimeSync();
+            }
+        });
 
-            const statusDoc = doc(db, 'routines', activeDate);
+        function setupRealtimeSync() {
+            const statusDoc = doc(db, 'artifacts', appId, 'public', 'data', 'dailyRoutine_' + activeDate);
             onSnapshot(statusDoc, (snapshot) => {
                 currentChecks = snapshot.data()?.checks || {};
                 updateUI();
-            }, (err) => {
-                console.error('Sync error:', err);
-                isOnline = false;
-                updateFirebaseStatus(false);
-            });
+            }, () => updateStatusBadge(false));
 
-            const logsCol = collection(db, 'routines', activeDate, 'logs');
+            const logsCol = collection(db, 'artifacts', appId, 'public', 'data', 'logs_' + activeDate);
             onSnapshot(logsCol, (snapshot) => {
                 const logs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
                     .sort((a, b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0));
                 renderLogs(logs);
             });
-        };
+        }
 
-        // --- UI Functions ---
+        // --- App Interactions ---
         window.toggleTask = async (id) => {
-            if (!auth.currentUser) {
-                showToast('Offline mode - changes saved locally only');
-                currentChecks[id] = !currentChecks[id];
-                updateUI();
-                return;
-            }
-
-            try {
-                isSyncing = true;
-                updateFirebaseStatus(true, 'syncing');
-                
-                const statusDoc = doc(db, 'routines', activeDate);
-                const newChecks = { ...currentChecks };
-                newChecks[id] = !newChecks[id];
-                
-                await setDoc(statusDoc, { checks: newChecks }, { merge: true });
-                currentChecks = newChecks;
-                updateUI();
-                
-                isSyncing = false;
-                updateFirebaseStatus(true);
-            } catch (err) {
-                console.error('Toggle error:', err);
-                isSyncing = false;
-                updateFirebaseStatus(false, err.message);
-                showToast('Sync failed - check connection');
-            }
+            if (!auth.currentUser) return;
+            updateStatusBadge(true, 'syncing');
+            const statusDoc = doc(db, 'artifacts', appId, 'public', 'data', 'dailyRoutine_' + activeDate);
+            const newChecks = { ...currentChecks };
+            newChecks[id] = !newChecks[id];
+            await setDoc(statusDoc, { checks: newChecks }, { merge: true });
+            updateStatusBadge(true);
         };
 
         window.addLog = async (text) => {
-            if (!auth.currentUser) {
-                showToast('Cannot log offline');
-                return;
-            }
-
-            try {
-                const logsCol = collection(db, 'routines', activeDate, 'logs');
-                await addDoc(logsCol, { 
-                    text, 
-                    timestamp: serverTimestamp(), 
-                    user: auth.currentUser.uid 
-                });
-                showToast('Event logged!');
-            } catch (err) {
-                console.error('Log error:', err);
-                showToast('Failed to log event');
-            }
+            if (!auth.currentUser) return;
+            const logsCol = collection(db, 'artifacts', appId, 'public', 'data', 'logs_' + activeDate);
+            await addDoc(logsCol, { text, timestamp: serverTimestamp(), user: auth.currentUser.uid });
+            showToast("Logged: " + text);
         };
 
         window.confirmReset = async () => {
-            if (!confirm("Reset all tasks for today?")) return;
-            try {
-                isSyncing = true;
-                updateFirebaseStatus(true, 'syncing');
-                
-                const statusDoc = doc(db, 'routines', activeDate);
-                await setDoc(statusDoc, { checks: {} });
-                currentChecks = {};
-                updateUI();
-                
-                isSyncing = false;
-                updateFirebaseStatus(true);
-                showToast('Progress reset!');
-            } catch (err) {
-                console.error('Reset error:', err);
-                isSyncing = false;
-                updateFirebaseStatus(false);
-                showToast('Reset failed');
-            }
+            if (!confirm("Wipe all progress for today?")) return;
+            const statusDoc = doc(db, 'artifacts', appId, 'public', 'data', 'dailyRoutine_' + activeDate);
+            await setDoc(statusDoc, { checks: {} });
+            showToast("Progress reset");
         };
 
-        window.switchTab = (tab) => {
-            ['routine', 'logs', 'settings'].forEach(t => {
-                document.getElementById(`tab-${t}`).className = t === tab 
-                    ? "flex-1 py-2.5 text-xs font-bold rounded-lg transition-all bg-white shadow-sm text-indigo-600"
-                    : "flex-1 py-2.5 text-xs font-bold rounded-lg transition-all text-slate-600";
-                document.getElementById(`view-${t}`).classList.toggle('hidden', t !== tab);
-            });
-        };
-
-        window.saveSetup = async () => {
-            const projectId = document.getElementById('setup-project-id').value.trim();
-            const apiKey = document.getElementById('setup-api-key').value.trim();
-
-            if (!projectId || !apiKey) {
-                showToast('Please fill in all fields');
-                return;
-            }
-
-            const success = await initApp(projectId, apiKey);
-            if (success) {
-                document.getElementById('setup-modal').classList.add('hidden');
-                location.reload();
-            }
-        };
-
-        window.skipSetup = () => {
-            document.getElementById('setup-modal').classList.add('hidden');
-            showToast('Running in offline mode');
-        };
-
-        window.showSetupGuide = () => {
-            document.getElementById('setup-guide-modal').classList.remove('hidden');
-        };
-
-        window.hideSetupGuide = () => {
-            document.getElementById('setup-guide-modal').classList.add('hidden');
-        };
-
-        window.updateFirebaseConfig = async () => {
-            const projectId = document.getElementById('settings-project-id').value.trim();
-            const apiKey = document.getElementById('settings-api-key').value.trim();
-
-            if (!projectId || !apiKey) {
-                showToast('Please fill in all fields');
-                return;
-            }
-
-            const success = await initApp(projectId, apiKey);
-            if (success) {
-                showToast('Firebase configured!');
-            }
-        };
-
-        window.testFirebaseConnection = async () => {
-            if (!auth.currentUser) {
-                showToast('Firebase not initialized');
-                return;
-            }
-
-            try {
-                const testDoc = doc(db, 'routines', 'test');
-                await setDoc(testDoc, { test: true, timestamp: serverTimestamp() });
-                showToast('✓ Connection successful!');
-            } catch (err) {
-                showToast('✗ Connection failed');
-            }
-        };
-
+        // --- Render Logic ---
         function updateUI() {
             const now = new Date();
             const currentHM = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
             
             let focusIndex = -1;
             for (let i = 0; i < routineData.length; i++) {
-                if (currentHM >= routineData[i].time) {
-                    focusIndex = i;
-                }
+                if (currentHM >= routineData[i].time) focusIndex = i;
             }
 
             const currentTask = focusIndex >= 0 ? routineData[focusIndex] : null;
@@ -551,57 +331,78 @@
             const focusIcon = document.getElementById('focus-icon');
 
             if (currentTask && !isCurrentDone) {
-                focusLabel.innerText = "⏱️ Current Activity";
+                focusLabel.innerText = "Current Task";
                 focusEl.innerText = currentTask.task;
-                focusDetail.innerText = "Started at " + currentTask.label;
-                focusIcon.className = `fa-solid ${currentTask.icon} text-lg`;
+                focusDetail.innerText = currentTask.detail;
+                focusIcon.className = `fa-solid ${currentTask.icon}`;
             } else if (nextTask) {
-                focusLabel.innerText = "⏭️ Upcoming Next";
+                focusLabel.innerText = "Up Next";
                 focusEl.innerText = nextTask.task;
                 focusDetail.innerText = "Starts at " + nextTask.label;
-                focusIcon.className = `fa-solid ${nextTask.icon} text-lg`;
+                focusIcon.className = `fa-solid ${nextTask.icon}`;
             } else {
-                focusLabel.innerText = "✨ Day Complete";
-                focusEl.innerText = "All set for today!";
-                focusDetail.innerText = "Night night, Nivaan!";
-                focusIcon.className = "fa-solid fa-moon text-lg";
+                focusLabel.innerText = "Day Complete";
+                focusEl.innerText = "Great work!";
+                focusDetail.innerText = "Nivaan is all set for tonight.";
+                focusIcon.className = "fa-solid fa-moon";
             }
 
-            renderRoutine(currentChecks, focusIndex);
+            renderRoutineList(currentChecks, focusIndex);
             updateProgress(currentChecks);
         }
 
-        function renderRoutine(checks, focusIndex) {
+        function renderRoutineList(checks, focusIndex) {
             const list = document.getElementById('routine-list');
             list.innerHTML = routineData.map((item, idx) => {
                 const isChecked = !!checks[item.id];
                 const isCurrent = idx === focusIndex;
                 
-                let statusClass = "border-slate-100 opacity-90";
-                if (isCurrent && !isChecked) statusClass = "active-slot bg-indigo-50/50";
-                if (isChecked) statusClass = "opacity-50 bg-slate-100/50 grayscale";
+                let containerClass = "relative z-10 flex gap-5 items-start transition-all cursor-pointer";
+                let iconWrapperClass = "w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0 border-4 border-white shadow-sm z-10";
+                let textOpacity = isChecked ? "opacity-40" : "opacity-100";
+                
+                if (isCurrent && !isChecked) iconWrapperClass += " bg-indigo-500 text-white pulse-soft active-ring shadow-indigo-100 shadow-xl";
+                else if (isChecked) iconWrapperClass += " bg-emerald-100 text-emerald-600";
+                else iconWrapperClass += " bg-white text-slate-300";
+
+                // Visual Checkbox UI - High visibility
+                const checkboxHtml = isChecked 
+                    ? `<div class="w-6 h-6 rounded-full bg-emerald-500 flex items-center justify-center text-white text-[10px] shadow-sm"><i class="fa-solid fa-check"></i></div>` 
+                    : `<div class="w-6 h-6 rounded-full border-2 border-slate-300 bg-slate-50"></div>`;
 
                 return `
-                    <label class="block cursor-pointer">
-                        <input type="checkbox" ${isChecked ? 'checked' : ''} class="hidden" onchange="toggleTask(${item.id})">
-                        <div class="flex items-center p-4 rounded-2xl border bg-white shadow-sm transition-all ${statusClass}">
-                            <div class="mr-4 w-10 h-10 rounded-xl ${isChecked ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-50 text-slate-400'} flex items-center justify-center border border-slate-100 flex-shrink-0">
-                                <i class="fa-solid ${item.icon} text-base"></i>
-                            </div>
-                            <div class="flex-grow min-w-0">
-                                <div class="flex items-center gap-2 flex-wrap">
-                                    <p class="text-[10px] font-bold text-slate-500 uppercase tracking-tight">${item.label}</p>
-                                    ${isCurrent && !isChecked ? '<span class="px-2 py-0.5 rounded bg-indigo-600 text-white text-[8px] font-bold uppercase upcoming-pulse">Now</span>' : ''}
-                                </div>
-                                <p class="font-bold text-slate-800 leading-tight text-sm">${item.task}</p>
-                                <p class="text-[10px] text-slate-500 font-medium line-clamp-1">${item.detail}</p>
-                            </div>
-                            <div class="ml-4 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all flex-shrink-0 ${isChecked ? 'bg-emerald-500 border-emerald-500' : 'border-slate-200'}">
-                                ${isChecked ? '<i class="fas fa-check text-white text-[10px]"></i>' : ''}
-                            </div>
+                    <div class="${containerClass}" onclick="toggleTask(${item.id})">
+                        <div class="${iconWrapperClass}">
+                            <i class="fa-solid ${item.icon} text-lg"></i>
                         </div>
-                    </label>
+                        <div class="pt-2 flex-grow ${textOpacity}">
+                            <div class="flex items-center gap-2 mb-1">
+                                <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">${item.label}</span>
+                                ${isCurrent && !isChecked ? '<span class="text-[8px] font-black px-2 py-0.5 rounded-full bg-indigo-600 text-white uppercase">Now</span>' : ''}
+                            </div>
+                            <h4 class="text-sm font-extrabold text-slate-800">${item.task}</h4>
+                            <p class="text-xs text-slate-400 font-medium">${item.detail}</p>
+                        </div>
+                        <div class="pt-3 pr-2">
+                             ${checkboxHtml}
+                        </div>
+                    </div>
                 `;
+            }).join('');
+        }
+
+        function renderLogs(logs) {
+            const list = document.getElementById('log-list');
+            if (!logs.length) {
+                list.innerHTML = '<p class="text-center py-12 text-slate-300 text-xs font-bold uppercase tracking-widest">No Events Yet</p>';
+                return;
+            }
+            list.innerHTML = logs.map(log => {
+                const time = log.timestamp ? new Date(log.timestamp.seconds * 1000).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '...';
+                return `<div class="bg-white rounded-3xl p-4 shadow-sm border border-slate-100 flex justify-between items-center fade-in">
+                    <p class="text-xs font-extrabold text-slate-700">${log.text}</p>
+                    <span class="text-[10px] font-mono text-slate-400 font-bold bg-slate-50 px-2 py-1 rounded-lg">${time}</span>
+                </div>`;
             }).join('');
         }
 
@@ -612,91 +413,66 @@
             document.getElementById('progress-text').innerText = percent + '%';
         }
 
-        function renderLogs(logs) {
-            const list = document.getElementById('log-list');
-            if (!logs.length) {
-                list.innerHTML = '<p class="text-center py-8 text-slate-400 text-xs italic">No events logged yet</p>';
-                return;
-            }
-            list.innerHTML = logs.map(log => {
-                const time = log.timestamp ? new Date(log.timestamp.seconds * 1000).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '...';
-                return `<div class="glass rounded-xl shadow-sm border border-slate-200 p-3 flex justify-between items-center"><p class="text-xs font-bold text-slate-700">${log.text}</p><span class="text-[9px] font-mono text-slate-400">${time}</span></div>`;
-            }).join('');
-        }
+        // --- View Transitions ---
+        window.switchTab = (tab) => {
+            const tabs = ['routine', 'logs', 'settings'];
+            tabs.forEach(t => {
+                const btn = document.getElementById(`nav-${t}`);
+                const view = document.getElementById(`view-${t}`);
+                if (t === tab) {
+                    btn.classList.add('tab-active');
+                    btn.classList.remove('text-slate-400');
+                    view.classList.remove('hidden');
+                } else {
+                    btn.classList.remove('tab-active');
+                    btn.classList.add('text-slate-400');
+                    view.classList.add('hidden');
+                }
+            });
+        };
 
-        function updateFirebaseStatus(connected, message = '') {
+        function updateStatusBadge(connected, type = 'ready') {
             const badge = document.getElementById('firebase-status');
             const text = document.getElementById('fb-status-text');
-            
-            if (message === 'syncing') {
-                badge.className = 'badge-status badge-syncing';
-                badge.innerHTML = '<i class="fas fa-sync-alt fa-spin w-1.5 h-1.5"></i> Syncing';
+            if (type === 'syncing') {
+                badge.className = 'w-2 h-2 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.5)] animate-pulse';
                 text.innerText = 'Syncing...';
             } else if (connected) {
-                badge.className = 'badge-status badge-online';
-                badge.innerHTML = '<i class="fas fa-circle w-1.5 h-1.5"></i> Online';
-                text.innerText = 'Connected to Firebase';
+                badge.className = 'w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]';
+                text.innerText = 'Connected';
             } else {
-                badge.className = 'badge-status badge-offline';
-                badge.innerHTML = '<i class="fas fa-circle w-1.5 h-1.5"></i> Offline';
-                text.innerText = message || 'Not connected';
+                badge.className = 'w-2 h-2 rounded-full bg-rose-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]';
+                text.innerText = 'Offline';
             }
         }
 
         function showToast(msg) {
-            const toast = document.getElementById('toast');
-            toast.innerText = msg;
-            toast.classList.remove('opacity-0', 'pointer-events-none');
+            const t = document.getElementById('toast');
+            t.innerText = msg;
+            t.classList.remove('opacity-0', 'pointer-events-none');
+            t.classList.add('opacity-100', 'translate-y-[-10px]');
             setTimeout(() => {
-                toast.classList.add('opacity-0', 'pointer-events-none');
-            }, 2500);
+                t.classList.add('opacity-0', 'pointer-events-none');
+                t.classList.remove('opacity-100', 'translate-y-[-10px]');
+            }, 2000);
         }
 
         function updateClock() {
             const now = new Date();
             document.getElementById('live-clock').innerText = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
-            document.getElementById('live-date').innerText = now.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
+            document.getElementById('live-date').innerText = now.toLocaleDateString(undefined, { month: 'short', day: 'numeric', weekday: 'short' });
             
             const currentStr = now.toISOString().split('T')[0];
             if (activeDate !== currentStr) {
                 activeDate = currentStr;
-                currentChecks = {};
-                if (auth?.currentUser) {
-                    setupRealtimeSync();
-                }
+                setupRealtimeSync();
             }
             updateUI();
         }
 
-        // --- Startup ---
-        function checkLocalConfig() {
-            const projectId = localStorage.getItem('firebase-project-id');
-            const apiKey = localStorage.getItem('firebase-api-key');
-
-            if (projectId && apiKey) {
-                initApp(projectId, apiKey);
-                document.getElementById('setup-modal').classList.add('hidden');
-            } else {
-                document.getElementById('setup-modal').classList.remove('hidden');
-            }
-
-            // Load settings
-            if (projectId) document.getElementById('settings-project-id').value = projectId;
-            if (apiKey) document.getElementById('settings-api-key').value = apiKey;
-        }
-
-        // Only initialize when DOM is ready
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', () => {
-                checkLocalConfig();
-                setInterval(updateClock, 1000);
-                updateClock();
-            });
-        } else {
-            checkLocalConfig();
-            setInterval(updateClock, 1000);
-            updateClock();
-        }
+        initAuth();
+        setInterval(updateClock, 1000);
+        updateClock();
     </script>
 </body>
 </html>
