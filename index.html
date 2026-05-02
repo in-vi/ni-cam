@@ -241,6 +241,19 @@
 
         <!-- Settings View -->
         <div id="view-settings" class="hidden space-y-6 fade-in">
+            <!-- Notifications Setup -->
+            <div class="glass p-6 rounded-[2.5rem] border border-slate-100">
+                <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 ml-1">Notifications</h3>
+                <div class="flex items-center justify-between p-4 bg-indigo-50 border border-indigo-100 rounded-2xl">
+                    <div>
+                        <p class="text-xs font-bold text-indigo-900">Task Alerts</p>
+                        <p class="text-[10px] text-indigo-600 font-medium">Alerts 5 mins before next task</p>
+                    </div>
+                    <button id="btn-notify" onclick="requestNotificationPermission()" class="px-4 py-2 bg-indigo-600 text-white rounded-xl font-bold text-xs shadow-sm active:scale-95 transition-all">Enable</button>
+                </div>
+            </div>
+
+            <!-- Database Setup -->
             <div class="glass p-6 rounded-[2.5rem] border border-slate-100">
                 <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-6 ml-1">Cloud Status</h3>
                 <div class="p-3 bg-blue-50 border border-blue-100 rounded-2xl mb-6">
@@ -264,6 +277,7 @@
                     </div>
                 </div>
             </div>
+
             <div class="px-2">
                 <button onclick="confirmReset()" class="w-full py-5 rounded-[2.5rem] bg-rose-50 text-rose-600 font-bold text-sm border border-rose-100 active:bg-rose-100">
                     <i class="fas fa-redo-alt mr-2"></i> Reset Today's Progress
@@ -301,6 +315,7 @@
         let app, auth, db;
         let activeDate = new Date().toISOString().split('T')[0];
         let currentChecks = {};
+        let notifiedTaskIds = new Set(); // Tracks which alerts have fired today
 
         const routineData = [
             { id: 0, time: "06:00", label: "06:00 AM", task: "Wake Up",             detail: "Activity: Morning Play",            icon: "fa-sun" },
@@ -340,6 +355,66 @@
                 renderLogs(logs);
             });
         };
+
+        // --- Notification Logic ---
+        window.requestNotificationPermission = async () => {
+            if (!("Notification" in window)) {
+                showToast("Notifications not supported on this device");
+                return;
+            }
+            try {
+                const permission = await Notification.requestPermission();
+                updateNotificationUI(permission);
+                if (permission === 'granted') showToast("Alerts enabled!");
+            } catch(err) {
+                console.error(err);
+            }
+        };
+
+        function updateNotificationUI(permission = window.Notification?.permission) {
+            const btn = document.getElementById('btn-notify');
+            if (!btn) return;
+            if (permission === 'granted') {
+                btn.innerText = 'Enabled';
+                btn.classList.remove('bg-indigo-600');
+                btn.classList.add('bg-emerald-500');
+                btn.disabled = true;
+            } else if (permission === 'denied') {
+                btn.innerText = 'Denied';
+                btn.classList.remove('bg-indigo-600');
+                btn.classList.add('bg-rose-500');
+                btn.disabled = true;
+            }
+        }
+
+        function checkNotifications(nextTask) {
+            // Guard clause to prevent unnecessary processing if permissions aren't granted
+            if (!nextTask || window.Notification?.permission !== 'granted') return;
+            
+            // Only fire once per task per day
+            if (notifiedTaskIds.has(nextTask.id)) return;
+
+            const now = new Date();
+            const currentTotalMins = now.getHours() * 60 + now.getMinutes();
+            
+            const [nextH, nextM] = nextTask.time.split(':').map(Number);
+            const nextTotalMins = nextH * 60 + nextM;
+
+            // Difference in exact minutes
+            const diffMins = nextTotalMins - currentTotalMins;
+
+            if (diffMins === 5) {
+                try {
+                    new Notification(`Upcoming: ${nextTask.task}`, { 
+                        body: `Starts in 5 minutes at ${nextTask.label}.`,
+                        icon: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect fill='%236366f1' width='192' height='192' rx='40'/><text x='50%' y='55%' dominant-baseline='middle' text-anchor='middle' font-size='120'>👶</text></svg>"
+                    });
+                } catch(e) {
+                    console.error("Notification failed", e);
+                }
+                notifiedTaskIds.add(nextTask.id);
+            }
+        }
 
         window.toggleTask = async (id) => {
             if (!auth?.currentUser) { showToast('Offline'); currentChecks[id] = !currentChecks[id]; updateUI(); return; }
@@ -465,6 +540,9 @@
             renderRoutine(currentChecks, fi);
             updateProgress(currentChecks);
             updateMilkRatio();
+            
+            // Trigger 5-minute notification check
+            checkNotifications(next);
         }
 
         function renderRoutine(checks, fi) {
@@ -550,8 +628,14 @@
             const now = new Date();
             document.getElementById('live-clock').innerText = now.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',hour12:false});
             document.getElementById('live-date').innerText  = now.toLocaleDateString(undefined,{weekday:'long',month:'short',day:'numeric'});
+            
             const today = now.toISOString().split('T')[0];
-            if (activeDate !== today) { activeDate = today; currentChecks = {}; if (auth?.currentUser) setupRealtimeSync(); }
+            if (activeDate !== today) { 
+                activeDate = today; 
+                currentChecks = {}; 
+                notifiedTaskIds.clear(); // Reset alert memory for the new day
+                if (auth?.currentUser) setupRealtimeSync(); 
+            }
             updateUI();
         }
 
@@ -566,6 +650,10 @@
             } else {
                 document.getElementById('setup-modal').classList.remove('hidden');
             }
+            
+            // Init Notification Button UI
+            updateNotificationUI();
+            
             setInterval(updateClock, 1000);
             updateClock();
         });
