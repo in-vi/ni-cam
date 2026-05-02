@@ -391,7 +391,9 @@
                 // Register service worker and pass Firebase config to it
                 if ('serviceWorker' in navigator) {
                     try {
-                        const reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+                        const swPath = '/ni-cam/sw.js';
+                        const swScope = '/ni-cam/';
+                        const reg = await navigator.serviceWorker.register(swPath, { scope: swScope });
 
                         const sendConfig = (worker) => {
                             if (worker) worker.postMessage({ type: 'FIREBASE_CONFIG', config: firebaseConfig });
@@ -489,9 +491,9 @@
 
             try {
                 // Wait for SW to be fully registered AND active before calling getToken
-                let swReg = await navigator.serviceWorker.getRegistration('/');
+                let swReg = await navigator.serviceWorker.getRegistration('/ni-cam/');
                 if (!swReg) {
-                    swReg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+                    swReg = await navigator.serviceWorker.register('/ni-cam/sw.js', { scope: '/ni-cam/' });
                 }
 
                 // If SW is still installing/waiting, wait for it to activate
