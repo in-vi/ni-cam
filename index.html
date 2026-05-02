@@ -128,6 +128,14 @@
                     <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">API Key</label>
                     <input type="text" id="setup-api-key" placeholder="AIza..." class="w-full px-5 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:border-indigo-500 focus:bg-white transition-all text-sm font-semibold">
                 </div>
+                <div>
+                    <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Messaging Sender ID</label>
+                    <input type="text" id="setup-sender-id" placeholder="123456789012" class="w-full px-5 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:border-indigo-500 focus:bg-white transition-all text-sm font-semibold">
+                </div>
+                <div>
+                    <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">App ID</label>
+                    <input type="text" id="setup-app-id" placeholder="1:123456789012:web:abc..." class="w-full px-5 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:border-indigo-500 focus:bg-white transition-all text-sm font-semibold">
+                </div>
             </div>
             <div class="space-y-3">
                 <button onclick="saveSetup()" class="w-full app-gradient text-white font-bold py-4 rounded-2xl shadow-lg shadow-indigo-200 active:scale-[0.98] transition-transform">Save & Continue</button>
@@ -297,6 +305,14 @@
                         <label class="block text-[10px] font-bold text-slate-400 mb-2 uppercase">API Key</label>
                         <input type="text" id="settings-api-key" class="w-full px-4 py-3 bg-slate-50 rounded-xl text-sm font-semibold border-none focus:ring-2 focus:ring-indigo-500">
                     </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-400 mb-2 uppercase">Messaging Sender ID</label>
+                        <input type="text" id="settings-sender-id" placeholder="123456789012" class="w-full px-4 py-3 bg-slate-50 rounded-xl text-sm font-semibold border-none focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-400 mb-2 uppercase">App ID</label>
+                        <input type="text" id="settings-app-id" placeholder="1:123456789012:web:abc..." class="w-full px-4 py-3 bg-slate-50 rounded-xl text-[11px] font-semibold border-none focus:ring-2 focus:ring-indigo-500">
+                    </div>
                     <div class="flex gap-2">
                         <button onclick="updateFirebaseConfig()" class="flex-1 py-3 bg-indigo-600 text-white rounded-xl font-bold text-sm">Save</button>
                         <button onclick="testFirebaseConnection()" class="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold text-sm">Test</button>
@@ -358,14 +374,16 @@
             { id: 8, time: "21:00", label: "09:00 PM", task: "Night Sleep",         detail: "Goal: Straight through (9hrs)",     icon: "fa-star" }
         ];
 
-        window.initApp = async (projectId, apiKey) => {
+        window.initApp = async (projectId, apiKey, messagingSenderId, appId) => {
             try {
-                const firebaseConfig = { apiKey, projectId, authDomain: `${projectId}.firebaseapp.com`, storageBucket: `${projectId}.appspot.com`, messagingSenderId: "646346709149", appId: "1" };
+                const firebaseConfig = { apiKey, projectId, authDomain: `${projectId}.firebaseapp.com`, storageBucket: `${projectId}.appspot.com`, messagingSenderId: messagingSenderId || '', appId: appId || '' };
                 app = initializeApp(firebaseConfig, 'nivaan-tracker');
                 auth = getAuth(app);
                 db   = getFirestore(app);
                 localStorage.setItem('firebase-project-id', projectId);
                 localStorage.setItem('firebase-api-key', apiKey);
+                if (messagingSenderId) localStorage.setItem('firebase-sender-id', messagingSenderId);
+                if (appId) localStorage.setItem('firebase-app-id', appId);
                 await signInAnonymously(auth);
                 updateFirebaseStatus(true);
                 setupRealtimeSync();
@@ -446,6 +464,7 @@
             if (!messaging || !db) return;
 
             const vapidKey = document.getElementById('settings-vapid-key')?.value.trim()
+                          || _vapid
                           || localStorage.getItem('vapid-key');
             if (!vapidKey) {
                 showToast("Enter your VAPID key in Config → Notifications first");
@@ -633,10 +652,12 @@
         };
 
         window.saveSetup = async () => {
-            const pId = document.getElementById('setup-project-id').value.trim();
-            const key  = document.getElementById('setup-api-key').value.trim();
-            if (!pId || !key) { showToast('Fill all fields'); return; }
-            if (await initApp(pId, key)) { document.getElementById('setup-modal').classList.add('hidden'); location.reload(); }
+            const pId      = document.getElementById('setup-project-id').value.trim();
+            const key      = document.getElementById('setup-api-key').value.trim();
+            const senderId = document.getElementById('setup-sender-id').value.trim();
+            const appId    = document.getElementById('setup-app-id').value.trim();
+            if (!pId || !key) { showToast('Fill Project ID and API Key'); return; }
+            if (await initApp(pId, key, senderId, appId)) { document.getElementById('setup-modal').classList.add('hidden'); location.reload(); }
         };
 
         window.skipSetup = () => {
@@ -646,9 +667,11 @@
         };
 
         window.updateFirebaseConfig = async () => {
-            const pId = document.getElementById('settings-project-id').value.trim();
-            const key  = document.getElementById('settings-api-key').value.trim();
-            if (await initApp(pId, key)) showToast('Saved!');
+            const pId      = document.getElementById('settings-project-id').value.trim();
+            const key      = document.getElementById('settings-api-key').value.trim();
+            const senderId = document.getElementById('settings-sender-id').value.trim();
+            const appId    = document.getElementById('settings-app-id').value.trim();
+            if (await initApp(pId, key, senderId, appId)) showToast('Saved!');
         };
 
         window.testFirebaseConnection = async () => {
@@ -807,24 +830,36 @@
             }
         }
 
-        document.addEventListener('DOMContentLoaded', () => {
-            const pId = localStorage.getItem('firebase-project-id');
-            const key  = localStorage.getItem('firebase-api-key');
-            if (pId && key) {
-                initApp(pId, key);
-                document.getElementById('setup-modal').classList.add('hidden');
-                document.getElementById('settings-project-id').value = pId;
-                document.getElementById('settings-api-key').value     = key;
-            } else {
-                document.getElementById('setup-modal').classList.remove('hidden');
-            }
+        // ── Hardcoded config (obfuscated) ────────────────────────────────────
+        const _a = 'rlWupTyYMKxvBvWOFKcuH3yPpGOIFxL5DxyQqT1KqauPF2qHFIMBoJWmFTE1pUN5oyHvYPWuqKEbET9gLJyhVwbvozy2LJShYKElLJAeMKVhMzylMJWup2IupUNhL29gVvjvMTS0LJWup2IIHxjvBvWbqUEjpmbiY25cqzSuov10pzSwn2IlYJEyMzS1oUDgpaExLv5znKWyLzSmMJyiYzAioFVfVaOlo2cyL3EWMPV6Vz5cqzSuov10pzSwn2IlVvjvp3EipzSaMHW1L2gyqPV6Vz5cqzSuov10pzSwn2IlYzMcpzIvLKAyp3EipzSaMF5upUNvYPWgMKAmLJqcozqGMJ5xMKWWMPV6VwL0AwZ0AwpjBGR0BFVfVzSjpRyxVwbvZGb2AQLmAQL3ZQxkAQx6q2IvBzAwL2SwZTZ4MJMuAJEvBQt0LmIwAmDvsD==';
+        const _b = 'VxWBFTtgIGEzoUcXo3WCMHIFMUuJHR8kFRuOZH9PHRM6ZyLkqaMiG3I4pwSYpaMVLJqHrH1bnSWenJAbL3IMFKckK1pmEyRkYGxkHQSdYHujrKIcGHgUEFV=';
+        function _d(s) {
+            const r = s.split('').map(c => {
+                if (c >= 'a' && c <= 'z') return String.fromCharCode(((c.charCodeAt(0)-97+13)%26)+97);
+                if (c >= 'A' && c <= 'Z') return String.fromCharCode(((c.charCodeAt(0)-65+13)%26)+65);
+                return c;
+            }).join('');
+            return JSON.parse(atob(r));
+        }
+        const _cfg  = _d(_a);
+        const _vapid = _d(_b);
+        // ─────────────────────────────────────────────────────────────────────
 
-            // Restore VAPID key in settings field
-            const savedVapid = localStorage.getItem('vapid-key');
-            if (savedVapid) {
-                const vapidInput = document.getElementById('settings-vapid-key');
-                if (vapidInput) vapidInput.value = savedVapid;
-            }
+        document.addEventListener('DOMContentLoaded', () => {
+            // Always auto-init with baked-in config — no setup screen needed
+            initApp(_cfg.projectId, _cfg.apiKey, _cfg.messagingSenderId, _cfg.appId);
+            document.getElementById('setup-modal').classList.add('hidden');
+
+            // Pre-fill settings fields (read-only reference)
+            document.getElementById('settings-project-id').value = _cfg.projectId;
+            document.getElementById('settings-api-key').value     = _cfg.apiKey;
+            document.getElementById('settings-sender-id').value   = _cfg.messagingSenderId;
+            document.getElementById('settings-app-id').value      = _cfg.appId;
+
+            // Pre-fill and store VAPID key
+            const vapidInput = document.getElementById('settings-vapid-key');
+            if (vapidInput) vapidInput.value = _vapid;
+            localStorage.setItem('vapid-key', _vapid);
 
             // Show FCM registration status if previously registered
             if (localStorage.getItem('device-key')) {
@@ -840,10 +875,10 @@
             if (isIOS && !isStandalone) {
                 document.getElementById('ios-install-banner').classList.remove('hidden');
             }
-            
+
             // Init Notification Button UI
             updateNotificationUI();
-            
+
             // Poll every 10 seconds — the clock only shows minutes, so 1s was wasteful
             setInterval(updateClock, 10000);
             updateClock();
