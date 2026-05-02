@@ -153,6 +153,16 @@
         </div>
     </div>
 
+    <!-- iOS Install Banner (shown only when not installed as PWA) -->
+    <div id="ios-install-banner" class="hidden fixed top-0 left-0 right-0 z-[90] bg-indigo-600 text-white px-5 py-3 flex items-center gap-3 shadow-lg">
+        <i class="fas fa-arrow-up-from-bracket text-lg flex-shrink-0"></i>
+        <div class="flex-1 min-w-0">
+            <p class="text-xs font-bold leading-tight">Add to Home Screen for push alerts</p>
+            <p class="text-[10px] text-indigo-200 leading-tight">Tap <strong>Share</strong> → <strong>Add to Home Screen</strong></p>
+        </div>
+        <button onclick="document.getElementById('ios-install-banner').classList.add('hidden')" class="text-indigo-200 flex-shrink-0"><i class="fas fa-times"></i></button>
+    </div>
+
     <!-- Fixed Header -->
     <div class="fixed top-0 left-0 right-0 z-50 px-6 pb-3 bg-slate-50/80 backdrop-blur-lg flex justify-between items-center border-b border-slate-100 safe-top">
         <div class="fade-in">
@@ -243,11 +253,24 @@
         <div id="view-settings" class="hidden space-y-6 fade-in">
             <!-- Notifications Setup -->
             <div class="glass p-6 rounded-[2.5rem] border border-slate-100">
-                <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 ml-1">Notifications</h3>
+                <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 ml-1">Push Notifications</h3>
+
+                <!-- VAPID Key input -->
+                <div class="mb-4">
+                    <label class="block text-[10px] font-bold text-slate-400 mb-2 uppercase">VAPID Public Key</label>
+                    <input type="text" id="settings-vapid-key" placeholder="BxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxI..." class="w-full px-4 py-3 bg-slate-50 rounded-xl text-[11px] font-semibold border-none focus:ring-2 focus:ring-indigo-500 break-all">
+                    <p class="text-[9px] text-slate-400 mt-1 ml-1">Firebase Console → Project Settings → Cloud Messaging → Web Push certificates</p>
+                </div>
+
+                <!-- FCM Token status -->
+                <div id="fcm-token-status" class="p-3 bg-slate-50 border border-slate-100 rounded-2xl mb-4 hidden">
+                    <p class="text-[10px] text-slate-500 font-bold uppercase tracking-wider"><i class="fas fa-mobile-alt mr-1"></i> This device: <span id="fcm-token-label" class="text-emerald-600">Not registered</span></p>
+                </div>
+
                 <div class="flex items-center justify-between p-4 bg-indigo-50 border border-indigo-100 rounded-2xl mb-3">
                     <div>
-                        <p class="text-xs font-bold text-indigo-900">Task Alerts</p>
-                        <p class="text-[10px] text-indigo-600 font-medium">Alerts up to 5 mins before next task</p>
+                        <p class="text-xs font-bold text-indigo-900">Background Alerts</p>
+                        <p class="text-[10px] text-indigo-600 font-medium">Works even when app is closed</p>
                     </div>
                     <button id="btn-notify" onclick="requestNotificationPermission()" class="px-4 py-2 bg-indigo-600 text-white rounded-xl font-bold text-xs shadow-sm active:scale-95 transition-all">Enable</button>
                 </div>
@@ -314,8 +337,10 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, collection, onSnapshot, addDoc, deleteDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getMessaging, getToken, onMessage } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-messaging.js";
 
-        let app, auth, db;
+        let app, auth, db, messaging;
+        let fcmToken = null;
         let activeDate = new Date().toISOString().split('T')[0];
         let currentChecks = {};
         let notifiedTaskIds = new Set(); // Tracks which alerts have fired today
@@ -335,7 +360,8 @@
 
         window.initApp = async (projectId, apiKey) => {
             try {
-                app = initializeApp({ apiKey, projectId, authDomain: `${projectId}.firebaseapp.com`, storageBucket: `${projectId}.appspot.com`, messagingSenderId: "1", appId: "1" }, 'nivaan-tracker');
+                const firebaseConfig = { apiKey, projectId, authDomain: `${projectId}.firebaseapp.com`, storageBucket: `${projectId}.appspot.com`, messagingSenderId: "646346709149", appId: "1" };
+                app = initializeApp(firebaseConfig, 'nivaan-tracker');
                 auth = getAuth(app);
                 db   = getFirestore(app);
                 localStorage.setItem('firebase-project-id', projectId);
@@ -343,6 +369,34 @@
                 await signInAnonymously(auth);
                 updateFirebaseStatus(true);
                 setupRealtimeSync();
+
+                // Register service worker and pass Firebase config to it
+                if ('serviceWorker' in navigator) {
+                    try {
+                        const reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+                        // Give SW the config so it can init Firebase for background messages
+                        const sw = reg.installing || reg.waiting || reg.active;
+                        const sendConfig = (worker) => worker?.postMessage({ type: 'FIREBASE_CONFIG', config: firebaseConfig });
+                        if (reg.installing) reg.installing.addEventListener('statechange', e => { if (e.target.state === 'activated') sendConfig(e.target); });
+                        else sendConfig(sw);
+                        console.log('Service worker registered');
+                    } catch (e) {
+                        console.warn('SW registration failed:', e);
+                    }
+                }
+
+                // Init FCM messaging (non-blocking)
+                try {
+                    messaging = getMessaging(app);
+                    // Handle foreground messages
+                    onMessage(messaging, payload => {
+                        const { title, body } = payload.notification || {};
+                        showToast(`🔔 ${title || 'Routine Alert'}`);
+                    });
+                } catch (e) {
+                    console.warn('FCM init skipped (not supported in this context):', e.message);
+                }
+
                 return true;
             } catch (err) {
                 updateFirebaseStatus(false, err.message);
@@ -365,18 +419,65 @@
                 showToast("Notifications not supported on this device");
                 return;
             }
+
+            // iOS: must be installed as PWA to receive push
+            const isStandalone = window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
+            if (/iPhone|iPad|iPod/.test(navigator.userAgent) && !isStandalone) {
+                showToast("Add to Home Screen first for push alerts!");
+                document.getElementById('ios-install-banner').classList.remove('hidden');
+                return;
+            }
+
             try {
                 const permission = await Notification.requestPermission();
                 updateNotificationUI(permission);
                 if (permission === 'granted') {
-                    notifiedTaskIds.clear(); // Reset memory so testing works immediately
+                    notifiedTaskIds.clear();
                     showToast("Alerts enabled!");
-                    updateUI(); // Check immediately
+                    await registerFCMToken();
+                    updateUI();
                 }
             } catch(err) {
                 console.error(err);
             }
         };
+
+        async function registerFCMToken() {
+            if (!messaging || !db) return;
+
+            const vapidKey = document.getElementById('settings-vapid-key')?.value.trim()
+                          || localStorage.getItem('vapid-key');
+            if (!vapidKey) {
+                showToast("Enter your VAPID key in Config → Notifications first");
+                return;
+            }
+            localStorage.setItem('vapid-key', vapidKey);
+
+            try {
+                const swReg = await navigator.serviceWorker.getRegistration('/');
+                fcmToken = await getToken(messaging, { vapidKey, serviceWorkerRegistration: swReg });
+                if (!fcmToken) { console.warn('No FCM token returned'); return; }
+
+                // Save token to Firestore under a stable device key
+                const deviceKey = localStorage.getItem('device-key') || crypto.randomUUID();
+                localStorage.setItem('device-key', deviceKey);
+
+                await setDoc(doc(db, 'fcm_tokens', deviceKey), {
+                    token: fcmToken,
+                    platform: /iPhone|iPad|iPod/.test(navigator.userAgent) ? 'ios' : 'other',
+                    updatedAt: serverTimestamp()
+                });
+
+                const statusEl = document.getElementById('fcm-token-status');
+                const labelEl  = document.getElementById('fcm-token-label');
+                if (statusEl) statusEl.classList.remove('hidden');
+                if (labelEl)  labelEl.innerText = 'Registered ✓';
+                showToast("This device registered for push!");
+            } catch (e) {
+                console.error('FCM token error:', e);
+                showToast("Push registration failed — check VAPID key");
+            }
+        }
 
         function updateNotificationUI(permission = window.Notification?.permission) {
             const btn = document.getElementById('btn-notify');
@@ -682,6 +783,8 @@
             setTimeout(() => { t.classList.add('opacity-0','pointer-events-none'); t.classList.remove('opacity-100','translate-y-[-8px]'); }, 2500);
         }
 
+        let lastRenderedMinute = -1; // Tracks the last minute the full UI was rebuilt
+
         function updateClock() {
             const now = new Date();
             document.getElementById('live-clock').innerText = now.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',hour12:false});
@@ -692,9 +795,16 @@
                 activeDate = today; 
                 currentChecks = {}; 
                 notifiedTaskIds.clear(); // Reset alert memory for the new day
+                lastRenderedMinute = -1; // Force a full rebuild on day change
                 if (auth?.currentUser) setupRealtimeSync(); 
             }
-            updateUI();
+
+            // Only do the expensive full UI rebuild when the minute actually changes
+            const currentMinute = now.getHours() * 60 + now.getMinutes();
+            if (currentMinute !== lastRenderedMinute) {
+                lastRenderedMinute = currentMinute;
+                updateUI();
+            }
         }
 
         document.addEventListener('DOMContentLoaded', () => {
@@ -708,11 +818,34 @@
             } else {
                 document.getElementById('setup-modal').classList.remove('hidden');
             }
+
+            // Restore VAPID key in settings field
+            const savedVapid = localStorage.getItem('vapid-key');
+            if (savedVapid) {
+                const vapidInput = document.getElementById('settings-vapid-key');
+                if (vapidInput) vapidInput.value = savedVapid;
+            }
+
+            // Show FCM registration status if previously registered
+            if (localStorage.getItem('device-key')) {
+                const statusEl = document.getElementById('fcm-token-status');
+                const labelEl  = document.getElementById('fcm-token-label');
+                if (statusEl) statusEl.classList.remove('hidden');
+                if (labelEl)  labelEl.innerText = 'Registered ✓';
+            }
+
+            // Show iOS install banner if on iOS and NOT installed as PWA
+            const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
+            const isStandalone = window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
+            if (isIOS && !isStandalone) {
+                document.getElementById('ios-install-banner').classList.remove('hidden');
+            }
             
             // Init Notification Button UI
             updateNotificationUI();
             
-            setInterval(updateClock, 1000);
+            // Poll every 10 seconds — the clock only shows minutes, so 1s was wasteful
+            setInterval(updateClock, 10000);
             updateClock();
         });
     </script>
