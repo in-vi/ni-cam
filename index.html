@@ -392,11 +392,29 @@
                 if ('serviceWorker' in navigator) {
                     try {
                         const reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
-                        // Give SW the config so it can init Firebase for background messages
-                        const sw = reg.installing || reg.waiting || reg.active;
-                        const sendConfig = (worker) => worker?.postMessage({ type: 'FIREBASE_CONFIG', config: firebaseConfig });
-                        if (reg.installing) reg.installing.addEventListener('statechange', e => { if (e.target.state === 'activated') sendConfig(e.target); });
-                        else sendConfig(sw);
+
+                        const sendConfig = (worker) => {
+                            if (worker) worker.postMessage({ type: 'FIREBASE_CONFIG', config: firebaseConfig });
+                        };
+
+                        if (reg.active) {
+                            // Already active — send immediately
+                            sendConfig(reg.active);
+                        } else {
+                            // Wait for the SW to activate, then send
+                            const pending = reg.installing || reg.waiting;
+                            if (pending) {
+                                pending.addEventListener('statechange', e => {
+                                    if (e.target.state === 'activated') sendConfig(e.target);
+                                });
+                            }
+                        }
+
+                        // Also send config whenever the controller changes (e.g. first load)
+                        navigator.serviceWorker.addEventListener('controllerchange', () => {
+                            sendConfig(navigator.serviceWorker.controller);
+                        });
+
                         console.log('Service worker registered');
                     } catch (e) {
                         console.warn('SW registration failed:', e);
@@ -461,23 +479,44 @@
         };
 
         async function registerFCMToken() {
-            if (!messaging || !db) return;
+            if (!messaging || !db) { showToast("Firebase not ready — try again"); return; }
 
             const vapidKey = document.getElementById('settings-vapid-key')?.value.trim()
                           || _vapid
                           || localStorage.getItem('vapid-key');
-            if (!vapidKey) {
-                showToast("Enter your VAPID key in Config → Notifications first");
-                return;
-            }
+            if (!vapidKey) { showToast("VAPID key missing"); return; }
             localStorage.setItem('vapid-key', vapidKey);
 
             try {
-                const swReg = await navigator.serviceWorker.getRegistration('/');
-                fcmToken = await getToken(messaging, { vapidKey, serviceWorkerRegistration: swReg });
-                if (!fcmToken) { console.warn('No FCM token returned'); return; }
+                // Wait for SW to be fully registered AND active before calling getToken
+                let swReg = await navigator.serviceWorker.getRegistration('/');
+                if (!swReg) {
+                    swReg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+                }
 
-                // Save token to Firestore under a stable device key
+                // If SW is still installing/waiting, wait for it to activate
+                await new Promise((resolve, reject) => {
+                    if (swReg.active) { resolve(); return; }
+                    const worker = swReg.installing || swReg.waiting;
+                    if (!worker) { reject(new Error('No SW worker found')); return; }
+                    worker.addEventListener('statechange', e => {
+                        if (e.target.state === 'activated') resolve();
+                        if (e.target.state === 'redundant') reject(new Error('SW became redundant'));
+                    });
+                });
+
+                // Also wait for the SW controller to be set on this page
+                if (!navigator.serviceWorker.controller) {
+                    await new Promise(resolve => {
+                        navigator.serviceWorker.addEventListener('controllerchange', resolve, { once: true });
+                        // Claim clients from the SW side handles this — but add a timeout fallback
+                        setTimeout(resolve, 2000);
+                    });
+                }
+
+                fcmToken = await getToken(messaging, { vapidKey, serviceWorkerRegistration: swReg });
+                if (!fcmToken) { showToast("No token returned — check FCM is enabled in Firebase console"); return; }
+
                 const deviceKey = localStorage.getItem('device-key') || crypto.randomUUID();
                 localStorage.setItem('device-key', deviceKey);
 
@@ -491,10 +530,11 @@
                 const labelEl  = document.getElementById('fcm-token-label');
                 if (statusEl) statusEl.classList.remove('hidden');
                 if (labelEl)  labelEl.innerText = 'Registered ✓';
-                showToast("This device registered for push!");
+                showToast("✓ Push registered!");
             } catch (e) {
                 console.error('FCM token error:', e);
-                showToast("Push registration failed — check VAPID key");
+                // Surface the real error message so we can diagnose further
+                showToast("Push failed: " + (e?.message || e?.code || 'unknown error'));
             }
         }
 
