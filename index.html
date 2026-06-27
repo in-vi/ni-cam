@@ -16,7 +16,7 @@
     <!-- PWA: The ONE missing line that makes it installable -->
     <link rel="manifest" href="./manifest.json">
 
-    <!-- PWA Icons (inline SVG so no extra image files needed) -->
+    <!-- PWA Icons -->
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect fill='%236366f1' width='192' height='192' rx='40'/><text x='50%' y='55%' dominant-baseline='middle' text-anchor='middle' font-size='120'>👶</text></svg>">
     <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'><rect fill='%236366f1' width='180' height='180' rx='45'/><text x='50%' y='55%' dominant-baseline='middle' text-anchor='middle' font-size='110'>👶</text></svg>">
 
@@ -111,64 +111,18 @@
 </head>
 <body class="pb-32">
 
-    <!-- Setup Modal -->
-    <div id="setup-modal" class="fixed inset-0 bg-black/60 backdrop-blur-md z-[100] flex items-center justify-center p-6 hidden">
-        <div class="bg-white rounded-[2.5rem] shadow-2xl max-w-md w-full p-8 fade-in">
-            <div class="w-16 h-16 rounded-3xl app-gradient flex items-center justify-center text-white text-2xl mb-6 mx-auto shadow-lg shadow-indigo-200">
-                <i class="fas fa-rocket"></i>
+    <!-- Notification Alert Modal (In-App Fallback) -->
+    <div id="alert-modal" class="fixed inset-0 bg-indigo-900/60 backdrop-blur-md z-[120] flex items-center justify-center p-6 hidden">
+        <div class="bg-white rounded-[2.5rem] shadow-2xl max-w-sm w-full p-8 text-center fade-in">
+            <div class="w-20 h-20 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-4xl mx-auto mb-6 upcoming-pulse shadow-inner">
+                <i class="fas fa-bell"></i>
             </div>
-            <h2 class="text-2xl font-extrabold text-center mb-2">Welcome to Nivaan's Tracker</h2>
-            <p class="text-slate-500 text-center text-sm mb-8">Set up cloud sync to access this routine from any device.</p>
-            <div class="space-y-4 mb-8">
-                <div>
-                    <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Firebase Project ID</label>
-                    <input type="text" id="setup-project-id" placeholder="my-project-id" class="w-full px-5 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:border-indigo-500 focus:bg-white transition-all text-sm font-semibold">
-                </div>
-                <div>
-                    <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">API Key</label>
-                    <input type="text" id="setup-api-key" placeholder="AIza..." class="w-full px-5 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:border-indigo-500 focus:bg-white transition-all text-sm font-semibold">
-                </div>
-                <div>
-                    <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Messaging Sender ID</label>
-                    <input type="text" id="setup-sender-id" placeholder="123456789012" class="w-full px-5 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:border-indigo-500 focus:bg-white transition-all text-sm font-semibold">
-                </div>
-                <div>
-                    <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">App ID</label>
-                    <input type="text" id="setup-app-id" placeholder="1:123456789012:web:abc..." class="w-full px-5 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:border-indigo-500 focus:bg-white transition-all text-sm font-semibold">
-                </div>
-            </div>
-            <div class="space-y-3">
-                <button onclick="saveSetup()" class="w-full app-gradient text-white font-bold py-4 rounded-2xl shadow-lg shadow-indigo-200 active:scale-[0.98] transition-transform">Save & Continue</button>
-                <button onclick="skipSetup()" class="w-full text-slate-400 font-bold py-3 text-sm active:opacity-60 transition-opacity">Use Offline (Skip)</button>
-            </div>
+            <h3 class="text-2xl font-extrabold text-slate-800 mb-2 tracking-tight">Starting Soon!</h3>
+            <p id="alert-text" class="text-slate-500 font-medium mb-8 leading-relaxed">Task starts in 5 minutes.</p>
+            <button onclick="document.getElementById('alert-modal').classList.add('hidden')" class="w-full py-4 app-gradient text-white rounded-2xl font-bold text-lg shadow-lg shadow-indigo-200 active:scale-[0.98] transition-transform">
+                Got it
+            </button>
         </div>
-    </div>
-
-    <!-- Setup Guide Modal -->
-    <div id="setup-guide-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-[110] flex items-center justify-center p-4 hidden overflow-y-auto">
-        <div class="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6 my-8 fade-in">
-            <div class="flex justify-between items-start mb-4">
-                <h2 class="text-xl font-bold">Firebase Setup Guide</h2>
-                <button onclick="hideSetupGuide()" class="text-slate-400"><i class="fas fa-times text-xl"></i></button>
-            </div>
-            <div class="space-y-4 text-sm text-slate-600">
-                <p>1. Go to Firebase Console.</p>
-                <p>2. Create a Project.</p>
-                <p>3. Enable Firestore &amp; Anonymous Auth.</p>
-                <p>4. Paste your Project ID and API Key into the setup fields.</p>
-            </div>
-            <button onclick="hideSetupGuide()" class="w-full mt-6 app-gradient text-white font-bold py-3 rounded-xl">Got It!</button>
-        </div>
-    </div>
-
-    <!-- iOS Install Banner (shown only when not installed as PWA) -->
-    <div id="ios-install-banner" class="hidden fixed top-0 left-0 right-0 z-[90] bg-indigo-600 text-white px-5 py-3 flex items-center gap-3 shadow-lg">
-        <i class="fas fa-arrow-up-from-bracket text-lg flex-shrink-0"></i>
-        <div class="flex-1 min-w-0">
-            <p class="text-xs font-bold leading-tight">Add to Home Screen for push alerts</p>
-            <p class="text-[10px] text-indigo-200 leading-tight">Tap <strong>Share</strong> → <strong>Add to Home Screen</strong></p>
-        </div>
-        <button onclick="document.getElementById('ios-install-banner').classList.add('hidden')" class="text-indigo-200 flex-shrink-0"><i class="fas fa-times"></i></button>
     </div>
 
     <!-- Fixed Header -->
@@ -219,23 +173,19 @@
             <div class="grid grid-cols-2 gap-3 mb-2">
                 <div class="glass p-4 rounded-3xl border border-slate-100 card-shadow flex flex-col justify-center">
                     <div class="flex items-center gap-2 mb-2">
-                        <div class="w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center"><i class="fa-solid fa-bottle-droplet text-[10px]"></i></div>
+                        <div class="w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center"><i class="fa-solid fa-glass-water text-[10px]"></i></div>
                         <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Total Milk</p>
                     </div>
-                    <p class="text-xl font-extrabold text-slate-800">~480ml</p>
-                    <p class="text-[10px] text-slate-400 font-semibold mt-1">In 3 daily feeds</p>
+                    <p class="text-xl font-extrabold text-slate-800">~450mL</p>
+                    <p class="text-[10px] text-slate-400 font-semibold mt-1">Whole cow's milk (2 feeds)</p>
                 </div>
                 <div class="glass p-4 rounded-3xl border border-slate-100 card-shadow flex flex-col justify-center">
                     <div class="flex items-center gap-2 mb-2">
-                        <div class="w-6 h-6 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center"><i class="fa-solid fa-flask text-[10px]"></i></div>
-                        <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Mix Ratio</p>
+                        <div class="w-6 h-6 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center"><i class="fa-solid fa-egg text-[10px]"></i></div>
+                        <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Key Nutrition</p>
                     </div>
-                    <p class="text-sm font-extrabold text-slate-800"><span id="ratio-formula" class="text-amber-500">100ml</span> <span class="text-slate-300">/</span> <span id="ratio-cow" class="text-emerald-500">60ml</span></p>
-                    <p class="text-[9px] text-slate-400 font-bold mt-1 uppercase tracking-wide">Formula <span class="text-slate-300 lowercase px-1">vs</span> Cow Milk</p>
-                    <div class="w-full bg-slate-100 rounded-full h-1.5 mt-2.5 flex overflow-hidden">
-                        <div id="bar-formula" class="bg-amber-400 h-full transition-all duration-1000" style="width: 62.5%"></div>
-                        <div id="bar-cow" class="bg-emerald-400 h-full transition-all duration-1000" style="width: 37.5%"></div>
-                    </div>
+                    <p class="text-sm font-extrabold text-slate-800">1 Boiled Egg</p>
+                    <p class="text-[10px] text-slate-400 font-semibold mt-1">Daily with lunch</p>
                 </div>
             </div>
             <div id="loader" class="text-center py-10"><i class="fas fa-circle-notch fa-spin text-indigo-500 text-2xl"></i></div>
@@ -261,24 +211,11 @@
         <div id="view-settings" class="hidden space-y-6 fade-in">
             <!-- Notifications Setup -->
             <div class="glass p-6 rounded-[2.5rem] border border-slate-100">
-                <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 ml-1">Push Notifications</h3>
-
-                <!-- VAPID Key input -->
-                <div class="mb-4">
-                    <label class="block text-[10px] font-bold text-slate-400 mb-2 uppercase">VAPID Public Key</label>
-                    <input type="text" id="settings-vapid-key" placeholder="BxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxI..." class="w-full px-4 py-3 bg-slate-50 rounded-xl text-[11px] font-semibold border-none focus:ring-2 focus:ring-indigo-500 break-all">
-                    <p class="text-[9px] text-slate-400 mt-1 ml-1">Firebase Console → Project Settings → Cloud Messaging → Web Push certificates</p>
-                </div>
-
-                <!-- FCM Token status -->
-                <div id="fcm-token-status" class="p-3 bg-slate-50 border border-slate-100 rounded-2xl mb-4 hidden">
-                    <p class="text-[10px] text-slate-500 font-bold uppercase tracking-wider"><i class="fas fa-mobile-alt mr-1"></i> This device: <span id="fcm-token-label" class="text-emerald-600">Not registered</span></p>
-                </div>
-
+                <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 ml-1">Notifications</h3>
                 <div class="flex items-center justify-between p-4 bg-indigo-50 border border-indigo-100 rounded-2xl mb-3">
                     <div>
-                        <p class="text-xs font-bold text-indigo-900">Background Alerts</p>
-                        <p class="text-[10px] text-indigo-600 font-medium">Works even when app is closed</p>
+                        <p class="text-xs font-bold text-indigo-900">Task Alerts</p>
+                        <p class="text-[10px] text-indigo-600 font-medium">Alerts up to 5 mins before next task</p>
                     </div>
                     <button id="btn-notify" onclick="requestNotificationPermission()" class="px-4 py-2 bg-indigo-600 text-white rounded-xl font-bold text-xs shadow-sm active:scale-95 transition-all">Enable</button>
                 </div>
@@ -290,38 +227,19 @@
             <!-- Database Setup -->
             <div class="glass p-6 rounded-[2.5rem] border border-slate-100">
                 <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-6 ml-1">Cloud Status</h3>
-                <div class="p-3 bg-blue-50 border border-blue-100 rounded-2xl mb-6">
+                <div class="p-3 bg-blue-50 border border-blue-100 rounded-2xl mb-4">
                     <p class="text-[10px] text-blue-700 font-bold uppercase tracking-wider">
-                        <i class="fas fa-info-circle mr-1"></i>
+                        <i class="fas fa-cloud mr-1"></i>
                         Firebase: <span id="fb-status-text">Disconnected</span>
                     </p>
                 </div>
-                <div class="space-y-4">
-                    <div>
-                        <label class="block text-[10px] font-bold text-slate-400 mb-2 uppercase">Project ID</label>
-                        <input type="text" id="settings-project-id" class="w-full px-4 py-3 bg-slate-50 rounded-xl text-sm font-semibold border-none focus:ring-2 focus:ring-indigo-500">
-                    </div>
-                    <div>
-                        <label class="block text-[10px] font-bold text-slate-400 mb-2 uppercase">API Key</label>
-                        <input type="text" id="settings-api-key" class="w-full px-4 py-3 bg-slate-50 rounded-xl text-sm font-semibold border-none focus:ring-2 focus:ring-indigo-500">
-                    </div>
-                    <div>
-                        <label class="block text-[10px] font-bold text-slate-400 mb-2 uppercase">Messaging Sender ID</label>
-                        <input type="text" id="settings-sender-id" placeholder="123456789012" class="w-full px-4 py-3 bg-slate-50 rounded-xl text-sm font-semibold border-none focus:ring-2 focus:ring-indigo-500">
-                    </div>
-                    <div>
-                        <label class="block text-[10px] font-bold text-slate-400 mb-2 uppercase">App ID</label>
-                        <input type="text" id="settings-app-id" placeholder="1:123456789012:web:abc..." class="w-full px-4 py-3 bg-slate-50 rounded-xl text-[11px] font-semibold border-none focus:ring-2 focus:ring-indigo-500">
-                    </div>
-                    <div class="flex gap-2">
-                        <button onclick="updateFirebaseConfig()" class="flex-1 py-3 bg-indigo-600 text-white rounded-xl font-bold text-sm">Save</button>
-                        <button onclick="testFirebaseConnection()" class="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold text-sm">Test</button>
-                    </div>
-                </div>
+                <button onclick="testFirebaseConnection()" class="w-full py-3 bg-blue-600 text-white rounded-xl font-bold text-sm shadow-sm active:scale-95 transition-all">
+                    <i class="fas fa-wifi mr-2"></i> Test Connection
+                </button>
             </div>
 
             <div class="px-2">
-                <button onclick="confirmReset()" class="w-full py-5 rounded-[2.5rem] bg-rose-50 text-rose-600 font-bold text-sm border border-rose-100 active:bg-rose-100">
+                <button onclick="confirmReset()" class="w-full py-5 rounded-[2.5rem] bg-slate-100 text-slate-500 font-bold text-sm active:bg-slate-200 transition-colors">
                     <i class="fas fa-redo-alt mr-2"></i> Reset Today's Progress
                 </button>
             </div>
@@ -341,7 +259,7 @@
             </button>
             <button onclick="switchTab('settings')" id="tab-settings" class="flex flex-col items-center gap-1.5 transition-all text-slate-400">
                 <i class="fas fa-user-gear text-xl"></i>
-                <span class="text-[10px] font-bold uppercase tracking-wider">Config</span>
+                <span class="text-[10px] font-bold uppercase tracking-wider">Settings</span>
             </button>
         </div>
     </nav>
@@ -353,88 +271,38 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, collection, onSnapshot, addDoc, deleteDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        import { getMessaging, getToken, onMessage } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-messaging.js";
 
-        let app, auth, db, messaging;
-        let fcmToken = null;
+        // --- HARDCODED FIREBASE CREDENTIALS ---
+        const PROJECT_ID = "nivaan-tracker";
+        const API_KEY = "AIzaSyBq0UJF9BICtmWvxBKgTIVNmbsHdupp9nU";
+
+        let app, auth, db;
         let activeDate = new Date().toISOString().split('T')[0];
         let currentChecks = {};
-        let notifiedTaskIds = new Set(); // Tracks which alerts have fired today
+        let notifiedTaskIds = new Set(); 
 
         const routineData = [
-            { id: 0, time: "06:00", label: "06:00 AM", task: "Wake Up",             detail: "Activity: Morning Play",            icon: "fa-sun" },
-            { id: 1, time: "07:30", label: "07:30 AM", task: "Breakfast + Milk 1",  detail: "Cereal + Banana | 160-180ml Milk",  icon: "fa-utensils" },
-            { id: 2, time: "09:30", label: "09:30 AM", task: "Nap 1",               detail: "Sleep (~1.5 Hours)",                icon: "fa-moon" },
-            { id: 3, time: "12:00", label: "12:00 PM", task: "Lunch",               detail: "Chicken + Broccoli + Rice (1/2 Cup)",icon: "fa-bowl-food" },
-            { id: 4, time: "14:30", label: "02:30 PM", task: "Nap 2",               detail: "Sleep (Wake by 4:00 PM)",           icon: "fa-bed" },
-            { id: 5, time: "16:30", label: "04:30 PM", task: "Milk Feed 2",         detail: "Milk (160ml)",                      icon: "fa-bottle-baby" },
-            { id: 9, time: "17:45", label: "05:45 PM", task: "Evening Snack",       detail: "Fruit, Yogurt or Biscuit",          icon: "fa-apple-whole" },
-            { id: 6, time: "19:00", label: "07:00 PM", task: "Dinner",              detail: "Soft Family Food (1/2 Cup)",        icon: "fa-plate-wheat" },
-            { id: 7, time: "20:30", label: "08:30 PM", task: "Bed Prep + Milk 3",   detail: "Milk (160ml)",                      icon: "fa-bottle-baby" },
-            { id: 8, time: "21:00", label: "09:00 PM", task: "Night Sleep",         detail: "Goal: Straight through (9hrs)",     icon: "fa-star" }
+            { id: 0, time: "06:30", label: "06:30 AM", task: "Wake Up",             detail: "Morning Play",                      icon: "fa-sun" },
+            { id: 1, time: "07:00", label: "07:00 AM", task: "Breakfast",           detail: "Gerber cereal (1 serving)",         icon: "fa-bowl-rice" },
+            { id: 2, time: "08:00", label: "08:00 AM", task: "Morning Milk",        detail: "Whole cow's milk (~200–225 mL)",    icon: "fa-glass-water" },
+            { id: 3, time: "10:00", label: "10:00 AM", task: "Morning Nap",         detail: "Rest (Optional)",                   icon: "fa-moon" },
+            { id: 4, time: "12:00", label: "12:00 PM", task: "Lunch",               detail: "Rice + vegetables + 1 boiled egg",  icon: "fa-bowl-food" },
+            { id: 5, time: "13:30", label: "01:30 PM", task: "Afternoon Nap",       detail: "Main Nap",                          icon: "fa-bed" },
+            { id: 6, time: "15:00", label: "03:00 PM", task: "Afternoon Snack",     detail: "Fruit",                             icon: "fa-apple-whole" },
+            { id: 7, time: "16:00", label: "04:00 PM", task: "Evening Snack",       detail: "2nd serving of cereal (Optional)",  icon: "fa-cookie-bite" },
+            { id: 8, time: "18:30", label: "06:30 PM", task: "Dinner",              detail: "Rice + vegetables",                 icon: "fa-plate-wheat" },
+            { id: 9, time: "20:30", label: "08:30 PM", task: "Bed Prep + Milk",     detail: "Whole cow's milk (~200–225 mL)",    icon: "fa-bottle-baby" },
+            { id: 10, time: "21:00", label: "09:00 PM", task: "Night Sleep",        detail: "Goal: Straight through (9hrs+)",    icon: "fa-star" }
         ];
 
-        window.initApp = async (projectId, apiKey, messagingSenderId, appId) => {
+        window.initApp = async (projectId, apiKey) => {
             try {
-                const firebaseConfig = { apiKey, projectId, authDomain: `${projectId}.firebaseapp.com`, storageBucket: `${projectId}.appspot.com`, messagingSenderId: messagingSenderId || '', appId: appId || '' };
-                app = initializeApp(firebaseConfig, 'nivaan-tracker');
+                app = initializeApp({ apiKey, projectId, authDomain: `${projectId}.firebaseapp.com`, storageBucket: `${projectId}.appspot.com`, messagingSenderId: "1", appId: "1" }, 'nivaan-tracker');
                 auth = getAuth(app);
                 db   = getFirestore(app);
-                localStorage.setItem('firebase-project-id', projectId);
-                localStorage.setItem('firebase-api-key', apiKey);
-                if (messagingSenderId) localStorage.setItem('firebase-sender-id', messagingSenderId);
-                if (appId) localStorage.setItem('firebase-app-id', appId);
                 await signInAnonymously(auth);
                 updateFirebaseStatus(true);
                 setupRealtimeSync();
-
-                // Register service worker and pass Firebase config to it
-                if ('serviceWorker' in navigator) {
-                    try {
-                        const swPath = '/ni-cam/sw.js';
-                        const swScope = '/ni-cam/';
-                        const reg = await navigator.serviceWorker.register(swPath, { scope: swScope });
-
-                        const sendConfig = (worker) => {
-                            if (worker) worker.postMessage({ type: 'FIREBASE_CONFIG', config: firebaseConfig });
-                        };
-
-                        if (reg.active) {
-                            // Already active — send immediately
-                            sendConfig(reg.active);
-                        } else {
-                            // Wait for the SW to activate, then send
-                            const pending = reg.installing || reg.waiting;
-                            if (pending) {
-                                pending.addEventListener('statechange', e => {
-                                    if (e.target.state === 'activated') sendConfig(e.target);
-                                });
-                            }
-                        }
-
-                        // Also send config whenever the controller changes (e.g. first load)
-                        navigator.serviceWorker.addEventListener('controllerchange', () => {
-                            sendConfig(navigator.serviceWorker.controller);
-                        });
-
-                        console.log('Service worker registered');
-                    } catch (e) {
-                        console.warn('SW registration failed:', e);
-                    }
-                }
-
-                // Init FCM messaging (non-blocking)
-                try {
-                    messaging = getMessaging(app);
-                    // Handle foreground messages
-                    onMessage(messaging, payload => {
-                        const { title, body } = payload.notification || {};
-                        showToast(`🔔 ${title || 'Routine Alert'}`);
-                    });
-                } catch (e) {
-                    console.warn('FCM init skipped (not supported in this context):', e.message);
-                }
-
                 return true;
             } catch (err) {
                 updateFirebaseStatus(false, err.message);
@@ -453,186 +321,46 @@
 
         // --- Notification Logic ---
         window.requestNotificationPermission = async () => {
-            if (!("Notification" in window)) {
-                showToast("Notifications not supported on this device");
-                return;
-            }
-
-            // iOS: must be installed as PWA to receive push
-            const isStandalone = window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
-            if (/iPhone|iPad|iPod/.test(navigator.userAgent) && !isStandalone) {
-                showToast("Add to Home Screen first for push alerts!");
-                document.getElementById('ios-install-banner').classList.remove('hidden');
-                return;
-            }
-
+            if (!("Notification" in window)) { showToast("Notifications not supported"); return; }
             try {
                 const permission = await Notification.requestPermission();
                 updateNotificationUI(permission);
                 if (permission === 'granted') {
-                    notifiedTaskIds.clear();
+                    notifiedTaskIds.clear(); 
                     showToast("Alerts enabled!");
-                    await registerFCMToken();
                     updateUI();
                 }
-            } catch(err) {
-                console.error(err);
-            }
+            } catch(err) { console.error(err); }
         };
-
-        async function registerFCMToken() {
-            if (!messaging || !db) { showToast("Firebase not ready — try again"); return; }
-
-            const vapidKey = document.getElementById('settings-vapid-key')?.value.trim()
-                          || _vapid
-                          || localStorage.getItem('vapid-key');
-            if (!vapidKey) { showToast("VAPID key missing"); return; }
-            localStorage.setItem('vapid-key', vapidKey);
-
-            try {
-                // Wait for SW to be fully registered AND active before calling getToken
-                let swReg = await navigator.serviceWorker.getRegistration('/ni-cam/');
-                if (!swReg) {
-                    swReg = await navigator.serviceWorker.register('/ni-cam/sw.js', { scope: '/ni-cam/' });
-                }
-
-                // If SW is still installing/waiting, wait for it to activate
-                await new Promise((resolve, reject) => {
-                    if (swReg.active) { resolve(); return; }
-                    const worker = swReg.installing || swReg.waiting;
-                    if (!worker) { reject(new Error('No SW worker found')); return; }
-                    worker.addEventListener('statechange', e => {
-                        if (e.target.state === 'activated') resolve();
-                        if (e.target.state === 'redundant') reject(new Error('SW became redundant'));
-                    });
-                });
-
-                // Also wait for the SW controller to be set on this page
-                if (!navigator.serviceWorker.controller) {
-                    await new Promise(resolve => {
-                        navigator.serviceWorker.addEventListener('controllerchange', resolve, { once: true });
-                        // Claim clients from the SW side handles this — but add a timeout fallback
-                        setTimeout(resolve, 2000);
-                    });
-                }
-
-                fcmToken = await getToken(messaging, { vapidKey, serviceWorkerRegistration: swReg });
-                if (!fcmToken) { showToast("No token returned — check FCM is enabled in Firebase console"); return; }
-
-                const deviceKey = localStorage.getItem('device-key') || crypto.randomUUID();
-                localStorage.setItem('device-key', deviceKey);
-
-                await setDoc(doc(db, 'fcm_tokens', deviceKey), {
-                    token: fcmToken,
-                    platform: /iPhone|iPad|iPod/.test(navigator.userAgent) ? 'ios' : 'other',
-                    updatedAt: serverTimestamp()
-                });
-
-                const statusEl = document.getElementById('fcm-token-status');
-                const labelEl  = document.getElementById('fcm-token-label');
-                if (statusEl) statusEl.classList.remove('hidden');
-                if (labelEl)  labelEl.innerText = 'Registered ✓';
-                showToast("✓ Push registered!");
-            } catch (e) {
-                console.error('FCM token error:', e);
-                // Surface the real error message so we can diagnose further
-                showToast("Push failed: " + (e?.message || e?.code || 'unknown error'));
-            }
-        }
 
         function updateNotificationUI(permission = window.Notification?.permission) {
             const btn = document.getElementById('btn-notify');
             if (!btn) return;
             if (permission === 'granted') {
-                btn.innerText = 'Enabled';
-                btn.classList.remove('bg-indigo-600');
-                btn.classList.add('bg-emerald-500');
-                btn.disabled = true;
+                btn.innerText = 'Enabled'; btn.classList.replace('bg-indigo-600', 'bg-emerald-500'); btn.disabled = true;
             } else if (permission === 'denied') {
-                btn.innerText = 'Denied';
-                btn.classList.remove('bg-indigo-600');
-                btn.classList.add('bg-rose-500');
-                btn.disabled = true;
+                btn.innerText = 'Denied'; btn.classList.replace('bg-indigo-600', 'bg-rose-500'); btn.disabled = true;
             }
         }
 
         window.testNotification = () => {
-            if (window.Notification?.permission !== 'granted') {
-                showToast("Please click 'Enable' first!");
-                return;
-            }
-            
-            const title = "Test: Upcoming Activity";
-            const body = "This is a test alert. Notifications are working!";
-
-            // 1. Guaranteed in-app alert fallback
-            showToast(`🔔 ${title}`);
-
-            // 2. Native System Push
-            try {
-                if ('serviceWorker' in navigator) {
-                    navigator.serviceWorker.getRegistration().then(reg => {
-                        if (reg && reg.showNotification) {
-                            reg.showNotification(title, { body });
-                        } else {
-                            new Notification(title, { body });
-                        }
-                    }).catch(() => {
-                        new Notification(title, { body });
-                    });
-                } else {
-                    new Notification(title, { body });
-                }
-            } catch(e) {
-                console.error("Test notification failed", e);
-            }
+            const title = "Test: Upcoming Activity", body = "Notifications are working!";
+            document.getElementById('alert-text').innerText = body;
+            document.getElementById('alert-modal').classList.remove('hidden');
+            if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+            try { new Notification(title, { body }); } catch(e) {}
         };
 
         function checkNotifications(nextTask) {
-            // Guard clause to prevent unnecessary processing if permissions aren't granted
-            if (!nextTask || window.Notification?.permission !== 'granted') return;
-            
-            // Only fire once per task per day
-            if (notifiedTaskIds.has(nextTask.id)) return;
-
-            const now = new Date();
-            const currentTotalMins = now.getHours() * 60 + now.getMinutes();
-            
-            const [nextH, nextM] = nextTask.time.split(':').map(Number);
-            const nextTotalMins = nextH * 60 + nextM;
-
-            // Difference in exact minutes
-            const diffMins = nextTotalMins - currentTotalMins;
-
-            // Fire if the task is coming up in 5 minutes OR LESS (fixes the exact minute matching issue)
+            if (!nextTask || window.Notification?.permission !== 'granted' || notifiedTaskIds.has(nextTask.id)) return;
+            const now = new Date(), diffMins = (nextTask.time.split(':')[0]*60 + +nextTask.time.split(':')[1]) - (now.getHours()*60 + now.getMinutes());
             if (diffMins >= 0 && diffMins <= 5) {
-                notifiedTaskIds.add(nextTask.id); // Add immediately to prevent loops
-
-                const timeText = diffMins === 0 ? "now" : `in ${diffMins} minute${diffMins > 1 ? 's' : ''}`;
-                const title = `Upcoming: ${nextTask.task}`;
-                const body = `Starts ${timeText} at ${nextTask.label}.`;
-
-                // 1. Guaranteed in-app alert fallback
-                showToast(`🔔 ${nextTask.task} starts ${timeText}!`);
-
-                // 2. Native System Push (removed unsupported SVG icon to prevent silent failures)
-                try {
-                    if ('serviceWorker' in navigator) {
-                        navigator.serviceWorker.getRegistration().then(reg => {
-                            if (reg && reg.showNotification) {
-                                reg.showNotification(title, { body });
-                            } else {
-                                new Notification(title, { body });
-                            }
-                        }).catch(() => {
-                            new Notification(title, { body });
-                        });
-                    } else {
-                        new Notification(title, { body });
-                    }
-                } catch(e) {
-                    console.error("Native notification failed", e);
-                }
+                notifiedTaskIds.add(nextTask.id); 
+                const timeText = diffMins === 0 ? "now" : `in ${diffMins} min${diffMins > 1 ? 's' : ''}`;
+                document.getElementById('alert-text').innerHTML = `<span class="font-bold text-slate-800 block mb-1">${nextTask.task}</span> Starts ${timeText} at ${nextTask.label}.`;
+                document.getElementById('alert-modal').classList.remove('hidden');
+                if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+                try { new Notification(`Upcoming: ${nextTask.task}`, { body: `Starts ${timeText} at ${nextTask.label}.` }); } catch(e) {}
             }
         }
 
@@ -693,49 +421,11 @@
             document.querySelectorAll('.swipe-card').forEach(c => c.style.transform = 'translateX(0)');
         };
 
-        window.saveSetup = async () => {
-            const pId      = document.getElementById('setup-project-id').value.trim();
-            const key      = document.getElementById('setup-api-key').value.trim();
-            const senderId = document.getElementById('setup-sender-id').value.trim();
-            const appId    = document.getElementById('setup-app-id').value.trim();
-            if (!pId || !key) { showToast('Fill Project ID and API Key'); return; }
-            if (await initApp(pId, key, senderId, appId)) { document.getElementById('setup-modal').classList.add('hidden'); location.reload(); }
-        };
-
-        window.skipSetup = () => {
-            document.getElementById('setup-modal').classList.add('hidden');
-            document.getElementById('loader').classList.add('hidden');
-            showToast('Offline Mode'); updateUI();
-        };
-
-        window.updateFirebaseConfig = async () => {
-            const pId      = document.getElementById('settings-project-id').value.trim();
-            const key      = document.getElementById('settings-api-key').value.trim();
-            const senderId = document.getElementById('settings-sender-id').value.trim();
-            const appId    = document.getElementById('settings-app-id').value.trim();
-            if (await initApp(pId, key, senderId, appId)) showToast('Saved!');
-        };
-
         window.testFirebaseConnection = async () => {
-            if (!auth?.currentUser) { showToast('Init Firebase first'); return; }
+            if (!auth?.currentUser) { showToast('Firebase connecting...'); return; }
             try { await setDoc(doc(db, 'routines', 'test'), { test: true, ts: serverTimestamp() }); showToast('✓ Connected!'); }
             catch { showToast('✗ Failed'); }
         };
-
-        window.showSetupGuide = () => document.getElementById('setup-guide-modal').classList.remove('hidden');
-        window.hideSetupGuide = () => document.getElementById('setup-guide-modal').classList.add('hidden');
-
-        function updateMilkRatio() {
-            const start = new Date('2026-05-01').getTime();
-            const elapsed = Math.floor((Date.now() - start) / 86400000);
-            const totalMl = 160;
-            let formula = elapsed >= 21 ? 0 : Math.max(0, Math.round((100 - elapsed * (100/21)) / 10) * 10);
-            const cow = totalMl - formula;
-            document.getElementById('ratio-formula').innerText = `${formula}ml`;
-            document.getElementById('ratio-cow').innerText     = `${cow}ml`;
-            document.getElementById('bar-formula').style.width = `${(formula/totalMl)*100}%`;
-            document.getElementById('bar-cow').style.width     = `${(cow/totalMl)*100}%`;
-        }
 
         function updateUI() {
             const hm = new Date().toTimeString().slice(0,5);
@@ -763,9 +453,6 @@
             }
             renderRoutine(currentChecks, fi);
             updateProgress(currentChecks);
-            updateMilkRatio();
-            
-            // Trigger 5-minute notification check
             checkNotifications(next);
         }
 
@@ -848,10 +535,12 @@
             setTimeout(() => { t.classList.add('opacity-0','pointer-events-none'); t.classList.remove('opacity-100','translate-y-[-8px]'); }, 2500);
         }
 
-        let lastRenderedMinute = -1; // Tracks the last minute the full UI was rebuilt
+        let lastRenderedMinute = -1;
 
         function updateClock() {
             const now = new Date();
+            const currentMinute = now.getMinutes();
+
             document.getElementById('live-clock').innerText = now.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',hour12:false});
             document.getElementById('live-date').innerText  = now.toLocaleDateString(undefined,{weekday:'long',month:'short',day:'numeric'});
             
@@ -859,69 +548,21 @@
             if (activeDate !== today) { 
                 activeDate = today; 
                 currentChecks = {}; 
-                notifiedTaskIds.clear(); // Reset alert memory for the new day
-                lastRenderedMinute = -1; // Force a full rebuild on day change
+                notifiedTaskIds.clear(); 
                 if (auth?.currentUser) setupRealtimeSync(); 
             }
-
-            // Only do the expensive full UI rebuild when the minute actually changes
-            const currentMinute = now.getHours() * 60 + now.getMinutes();
+            
             if (currentMinute !== lastRenderedMinute) {
                 lastRenderedMinute = currentMinute;
                 updateUI();
             }
         }
 
-        // ── Hardcoded config (obfuscated) ────────────────────────────────────
-        const _a = 'rlWupTyYMKxvBvWOFKcuH3yPpGOIFxL5DxyQqT1KqauPF2qHFIMBoJWmFTE1pUN5oyHvYPWuqKEbET9gLJyhVwbvozy2LJShYKElLJAeMKVhMzylMJWup2IupUNhL29gVvjvMTS0LJWup2IIHxjvBvWbqUEjpmbiY25cqzSuov10pzSwn2IlYJEyMzS1oUDgpaExLv5znKWyLzSmMJyiYzAioFVfVaOlo2cyL3EWMPV6Vz5cqzSuov10pzSwn2IlVvjvp3EipzSaMHW1L2gyqPV6Vz5cqzSuov10pzSwn2IlYzMcpzIvLKAyp3EipzSaMF5upUNvYPWgMKAmLJqcozqGMJ5xMKWWMPV6VwL0AwZ0AwpjBGR0BFVfVzSjpRyxVwbvZGb2AQLmAQL3ZQxkAQx6q2IvBzAwL2SwZTZ4MJMuAJEvBQt0LmIwAmDvsD==';
-        const _b = 'VxWBFTtgIGEzoUcXo3WCMHIFMUuJHR8kFRuOZH9PHRM6ZyLkqaMiG3I4pwSYpaMVLJqHrH1bnSWenJAbL3IMFKckK1pmEyRkYGxkHQSdYHujrKIcGHgUEFV=';
-        function _d(s) {
-            const r = s.split('').map(c => {
-                if (c >= 'a' && c <= 'z') return String.fromCharCode(((c.charCodeAt(0)-97+13)%26)+97);
-                if (c >= 'A' && c <= 'Z') return String.fromCharCode(((c.charCodeAt(0)-65+13)%26)+65);
-                return c;
-            }).join('');
-            return JSON.parse(atob(r));
-        }
-        const _cfg  = _d(_a);
-        const _vapid = _d(_b);
-        // ─────────────────────────────────────────────────────────────────────
-
         document.addEventListener('DOMContentLoaded', () => {
-            // Always auto-init with baked-in config — no setup screen needed
-            initApp(_cfg.projectId, _cfg.apiKey, _cfg.messagingSenderId, _cfg.appId);
-            document.getElementById('setup-modal').classList.add('hidden');
-
-            // Pre-fill settings fields (read-only reference)
-            document.getElementById('settings-project-id').value = _cfg.projectId;
-            document.getElementById('settings-api-key').value     = _cfg.apiKey;
-            document.getElementById('settings-sender-id').value   = _cfg.messagingSenderId;
-            document.getElementById('settings-app-id').value      = _cfg.appId;
-
-            // Pre-fill and store VAPID key
-            const vapidInput = document.getElementById('settings-vapid-key');
-            if (vapidInput) vapidInput.value = _vapid;
-            localStorage.setItem('vapid-key', _vapid);
-
-            // Show FCM registration status if previously registered
-            if (localStorage.getItem('device-key')) {
-                const statusEl = document.getElementById('fcm-token-status');
-                const labelEl  = document.getElementById('fcm-token-label');
-                if (statusEl) statusEl.classList.remove('hidden');
-                if (labelEl)  labelEl.innerText = 'Registered ✓';
-            }
-
-            // Show iOS install banner if on iOS and NOT installed as PWA
-            const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
-            const isStandalone = window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
-            if (isIOS && !isStandalone) {
-                document.getElementById('ios-install-banner').classList.remove('hidden');
-            }
-
-            // Init Notification Button UI
+            // Auto-initialize with hardcoded credentials
+            initApp(PROJECT_ID, API_KEY);
+            
             updateNotificationUI();
-
-            // Poll every 10 seconds — the clock only shows minutes, so 1s was wasteful
             setInterval(updateClock, 10000);
             updateClock();
         });
